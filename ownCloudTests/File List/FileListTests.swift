@@ -46,7 +46,7 @@ class FileListTests: XCTestCase {
 			self.showFileList(bookmark: bookmark)
 
 			//Asserts
-			EarlGrey.select(elementWithMatcher: grey_allOf([grey_accessibilityLabel("Back"), grey_accessibilityTrait(UIAccessibilityTraits.staticText)])).assert(grey_sufficientlyVisible())
+			EarlGrey.select(elementWithMatcher: grey_text("Server name")).assert(grey_sufficientlyVisible())
 
 			//Reset status
 			EarlGrey.select(elementWithMatcher: grey_allOf([grey_accessibilityLabel("Back"), grey_accessibilityTrait(UIAccessibilityTraits.staticText)])).perform(grey_tap())

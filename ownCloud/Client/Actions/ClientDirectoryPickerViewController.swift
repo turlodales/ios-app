@@ -62,9 +62,11 @@ class ClientDirectoryPickerViewController: ClientQueryViewController {
 		// Select button creation
 		selectButton = UIBarButtonItem(title: selectButtonTitle, style: .plain, target: self, action: #selector(selectButtonPressed))
 		selectButton.title = selectButtonTitle
+		selectButton.accessibilityIdentifier = "picker-select-button"
 
 		// Cancel button creation
 		cancelBarButton = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancelBarButtonPressed))
+		cancelBarButton.accessibilityIdentifier = "picker-cancel-button"
 		navigationItem.rightBarButtonItems = [cancelBarButton]
 	}
 

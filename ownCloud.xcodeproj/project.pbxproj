@@ -52,6 +52,11 @@
 		5917244E20D3DC2100809B38 /* BiometricalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5917244D20D3DC2100809B38 /* BiometricalTests.swift */; };
 		59231CE02225A6FA00B79566 /* OCMockSwizzlingFileList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59231CDF2225A6FA00B79566 /* OCMockSwizzlingFileList.swift */; };
 		59231CE22225AA2E00B79566 /* OCMockSwizzlingBookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59231CE12225AA2E00B79566 /* OCMockSwizzlingBookmark.swift */; };
+		59231CEE22268A5100B79566 /* MoveViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59231CED22268A5100B79566 /* MoveViewTests.swift */; };
+		59231CF522268CB600B79566 /* PropfindResponseFolders.xml in Resources */ = {isa = PBXBuildFile; fileRef = 59231CF422268CB600B79566 /* PropfindResponseFolders.xml */; };
+		59231CF622268DE500B79566 /* PropfindResponseFolders.xml in Resources */ = {isa = PBXBuildFile; fileRef = 59231CF422268CB600B79566 /* PropfindResponseFolders.xml */; };
+		59231CF8222691B500B79566 /* PropfindResponseEmptyFolder.xml in Resources */ = {isa = PBXBuildFile; fileRef = 59231CF7222691B500B79566 /* PropfindResponseEmptyFolder.xml */; };
+		59231CF9222691BC00B79566 /* PropfindResponseEmptyFolder.xml in Resources */ = {isa = PBXBuildFile; fileRef = 59231CF7222691B500B79566 /* PropfindResponseEmptyFolder.xml */; };
 		592EFB47221ECC0F0041490E /* MoreViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592EFB46221ECC0F0041490E /* MoreViewTests.swift */; };
 		593A821120C7D4C5000E2A90 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 593A821320C7D4C5000E2A90 /* Localizable.strings */; };
 		593BAB46209AE1BC00023634 /* PasscodeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 593BAB44209AE1BC00023634 /* PasscodeViewController.swift */; };
@@ -483,6 +488,9 @@
 		5917244D20D3DC2100809B38 /* BiometricalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricalTests.swift; sourceTree = "<group>"; };
 		59231CDF2225A6FA00B79566 /* OCMockSwizzlingFileList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCMockSwizzlingFileList.swift; sourceTree = "<group>"; };
 		59231CE12225AA2E00B79566 /* OCMockSwizzlingBookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCMockSwizzlingBookmark.swift; sourceTree = "<group>"; };
+		59231CED22268A5100B79566 /* MoveViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveViewTests.swift; sourceTree = "<group>"; };
+		59231CF422268CB600B79566 /* PropfindResponseFolders.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PropfindResponseFolders.xml; sourceTree = "<group>"; };
+		59231CF7222691B500B79566 /* PropfindResponseEmptyFolder.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PropfindResponseEmptyFolder.xml; sourceTree = "<group>"; };
 		592EFB46221ECC0F0041490E /* MoreViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreViewTests.swift; sourceTree = "<group>"; };
 		593A821220C7D4C5000E2A90 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		593A821820C7D4DC000E2A90 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -926,6 +934,8 @@
 			children = (
 				59B09E5C21AD61DD007827B8 /* PropfindResponse.xml */,
 				595E2C9E21EE4BF300F0E95D /* PropfindResponseNewFolder.xml */,
+				59231CF422268CB600B79566 /* PropfindResponseFolders.xml */,
+				59231CF7222691B500B79566 /* PropfindResponseEmptyFolder.xml */,
 				59B09E5D21AD61DD007827B8 /* test_certificate.cer */,
 			);
 			path = Resources;
@@ -938,6 +948,7 @@
 				59B09E6821AD61F4007827B8 /* FileListTests.swift */,
 				59538A0221E4A9C2005E543B /* CreateFolderTests.swift */,
 				592EFB46221ECC0F0041490E /* MoreViewTests.swift */,
+				59231CED22268A5100B79566 /* MoveViewTests.swift */,
 			);
 			path = "File List";
 			sourceTree = "<group>";
@@ -1634,6 +1645,7 @@
 				6E938522220322F30049D676 /* SplashImage.png in Resources */,
 				DCB504DD221EF07F007638BE /* status-flash.tvg in Resources */,
 				DCE5E8B42080D781005F60CE /* folder-shared.tvg in Resources */,
+				59231CF622268DE500B79566 /* PropfindResponseFolders.xml in Resources */,
 				DCE5E8A42080D781005F60CE /* audio.tvg in Resources */,
 				59D4895220C83F2E00369C2E /* InfoPlist.strings in Resources */,
 				6EB8EDC52114358400C2BF44 /* folder-create.tvg in Resources */,
@@ -1658,6 +1670,7 @@
 				DCE5E8B22080D781005F60CE /* text-calendar.tvg in Resources */,
 				DCE5E8A92080D781005F60CE /* image.tvg in Resources */,
 				DCE5E8B52080D781005F60CE /* x-office-presentation.tvg in Resources */,
+				59231CF9222691BC00B79566 /* PropfindResponseEmptyFolder.xml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1665,9 +1678,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				59231CF522268CB600B79566 /* PropfindResponseFolders.xml in Resources */,
 				595E2C9F21EE4BF300F0E95D /* PropfindResponseNewFolder.xml in Resources */,
 				59B09E6621AD61DD007827B8 /* test_certificate.cer in Resources */,
 				59B09E6421AD61DD007827B8 /* PropfindResponse.xml in Resources */,
+				59231CF8222691B500B79566 /* PropfindResponseEmptyFolder.xml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1924,6 +1939,7 @@
 				5917244E20D3DC2100809B38 /* BiometricalTests.swift in Sources */,
 				59538A0B21E4C301005E543B /* MockOCQuery.swift in Sources */,
 				5971CF3A22046F530052FE9A /* MockClientRootViewController.swift in Sources */,
+				59231CEE22268A5100B79566 /* MoveViewTests.swift in Sources */,
 				59B09E7021AD61F4007827B8 /* UtilsTests.swift in Sources */,
 				59538A1C21E77FB7005E543B /* MockOCCore.swift in Sources */,
 				592EFB47221ECC0F0041490E /* MoreViewTests.swift in Sources */,
