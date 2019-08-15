@@ -264,11 +264,11 @@
 					<key>labelColor</key>
 					<string>ffffff</string>
 					<key>secondaryLabelColor</key>
-					<string>ffffff</string>
+					<string>EFEFEF</string>
 					<key>symbolColor</key>
 					<string>ffffff</string>
 					<key>tintColor</key>
-					<string>ffffff</string>
+					<string>EFEFEF</string>
 					<key>filledColorPairCollection</key>
 					<dict>
 						<key>normal</key>
