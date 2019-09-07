@@ -4,12 +4,6 @@
 <dict>
 	<key>Generic</key>
 	<dict>
-<<<<<<< HEAD
-		<key>darkBrandColor</key>
-		<string>0C7D2C</string>
-		<key>lightBrandColor</key>
-		<string>14C948</string>
-=======
 		<key>Corporate</key>
 		<dict>
 			<key>Color</key>
@@ -90,7 +84,6 @@
 			<key>Inactive</key>
 			<string>#AB9ADD</string>
 		</dict>
->>>>>>> 22cdba3... setting new theme generic colors and reading them from keypath, if existing
 	</dict>
 	<key>Themes</key>
 	<array>
