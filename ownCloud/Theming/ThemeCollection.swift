@@ -114,8 +114,15 @@ class ThemeCollection : NSObject {
 	// MARK: - Progress
 	@objc var progressColors : ThemeColorPair
 
+	// MARK: - Activity View
+	@objc var activityIndicatorViewStyle : UIActivityIndicatorView.Style
+	@objc var searchBarActivityIndicatorViewStyle : UIActivityIndicatorView.Style
+
 	// MARK: - Icon colors
 	@objc var iconColors : [String:String]
+
+	@objc var favoriteEnabledColor : UIColor?
+	@objc var favoriteDisabledColor : UIColor?
 
 	// MARK: - Default Collection
 	static var defaultCollection : ThemeCollection = {
@@ -201,6 +208,9 @@ class ThemeCollection : NSObject {
 			filledColorPairCollection: ThemeColorPairCollection(fromPair: ThemeColorPair(foreground: UIColor.white, background: lightBrandColor))
 		))
 
+		self.favoriteEnabledColor = UIColor(hex: 0xFFCC00)
+		self.favoriteDisabledColor = UIColor(hex: 0x7C7C7C)
+
 		// Styles
 		switch style {
 			case .dark:
@@ -240,6 +250,10 @@ class ThemeCollection : NSObject {
 				// Progress
 				self.progressColors = ThemeColorPair(foreground: self.lightBrandColor, background: self.lightBrandColor.withAlphaComponent(0.3))
 
+				// Activity
+				self.activityIndicatorViewStyle = .white
+				self.searchBarActivityIndicatorViewStyle = .white
+
 				// Logo fill color
 				let logoColor : UIColor? = UIColor.white
 				logoFillColor = colors.resolveColor("Icon.logoFillColor", logoColor)
@@ -264,6 +278,10 @@ class ThemeCollection : NSObject {
 				// Progress
 				self.progressColors = ThemeColorPair(foreground: self.lightBrandColor, background: UIColor.lightGray.withAlphaComponent(0.3))
 
+				// Activity
+				self.activityIndicatorViewStyle = .gray
+				self.searchBarActivityIndicatorViewStyle = .gray
+
 				// Logo fill color
 				logoFillColor = UIColor.lightGray
 
@@ -278,6 +296,10 @@ class ThemeCollection : NSObject {
 
 				// Progress
 				self.progressColors = colors.resolveThemeColorPair("Progress", ThemeColorPair(foreground: self.lightBrandColor, background: UIColor.lightGray.withAlphaComponent(0.3)))
+
+				// Activity
+				self.activityIndicatorViewStyle = .gray
+				self.searchBarActivityIndicatorViewStyle = .white
 
 				// Logo fill color
 				logoFillColor = UIColor.lightGray
