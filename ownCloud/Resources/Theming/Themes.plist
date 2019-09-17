@@ -7,25 +7,25 @@
 		<key>Corporate</key>
 		<dict>
 			<key>Color</key>
-			<string>#7357C7</string>
+			<string>#29833B</string>
 		</dict>
 		<key>Action</key>
 		<dict>
 			<key>Primary</key>
-			<string>#7357C7</string>
+			<string>#29833B</string>
 			<key>Inverse</key>
-			<string>#E3DDF4</string>
+			<string>#C0FFCC</string>
 			<key>Secondary</key>
-			<string>#827B96</string>
+			<string>#777777</string>
 		</dict>
 		<key>Text</key>
 		<dict>
 			<key>Primary</key>
-			<string>#2E2350</string>
+			<string>#222222</string>
 			<key>Inverse</key>
 			<string>#FFFFFF</string>
 			<key>Secondary</key>
-			<string>#827B96</string>
+			<string>#666666</string>
 			<key>Inverse-Light</key>
 			<string>#F2F4F7</string>
 			<key>Disabled</key>
@@ -38,7 +38,7 @@
 			<key>Light</key>
 			<string>#F2F4F7</string>
 			<key>Input-Form</key>
-			<string>#5C469F</string>
+			<string>#21692F</string>
 			<key>Selected</key>
 			<string>#E5EFFF</string>
 			<key>Tooltip</key>
@@ -73,7 +73,7 @@
 			<key>System-Light</key>
 			<string>#CCD4E0</string>
 			<key>Filetype-Normal</key>
-			<string>#7357C7</string>
+			<string>#333333</string>
 			<key>Disabled</key>
 			<string>#C4C4C4</string>
 		</dict>
@@ -82,7 +82,7 @@
 			<key>Active</key>
 			<string>#FFFFFF</string>
 			<key>Inactive</key>
-			<string>#AB9ADD</string>
+			<string>#1D5B29</string>
 		</dict>
 	</dict>
 	<key>Themes</key>
@@ -508,7 +508,7 @@
 			<key>darkBrandColor</key>
 			<string>Corporate.Color</string>
 			<key>lightBrandColor</key>
-			<string>5C469F</string>
+			<string>#C0FFCC</string>
 			<key>Colors</key>
 			<dict>
 				<key>tintColor</key>
