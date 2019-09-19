@@ -656,7 +656,7 @@
 					<key>tableRowHighlightColors</key>
 					<dict>
 						<key>backgroundColor</key>
-						<string></string>
+						<string>#F2F4F7</string>
 						<key>labelColor</key>
 						<string></string>
 						<key>secondaryLabelColor</key>
