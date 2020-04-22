@@ -234,7 +234,9 @@
 			FPLogCmdBegin(@"StartProviding", @"Downloading %@", item);
 
 			[self.core downloadItem:(OCItem *)item options:@{
+
 				OCCoreOptionAddFileClaim : [OCClaim claimForLifetimeOfCore:core explicitIdentifier:OCClaimExplicitIdentifierFileProvider withLockType:OCClaimLockTypeRead]
+
 			} resultHandler:^(NSError *error, OCCore *core, OCItem *item, OCFile *file) {
 				OCLogDebug(@"Starting to provide file:\nPAU: %@\nFURL: %@\nID: %@\nErr: %@\nlocalRelativePath: %@", provideAtURL, file.url, item.itemIdentifier, error, item.localRelativePath);
 
