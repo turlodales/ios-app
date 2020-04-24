@@ -96,10 +96,6 @@ class ClientItemCell: ThemeTableViewCell {
 		}()
 
 		NotificationCenter.default.addObserver(self, selector: #selector(updateAvailableOfflineStatus(_:)), name: .OCCoreItemPoliciesChanged, object: OCItemPolicyKind.availableOffline)
-
-		if #available(iOS 13.4, *) {
-			PointerEffect.install(on: self.contentView, effectStyle: .hover)
-		}
 	}
 
 	required init?(coder aDecoder: NSCoder) {
@@ -150,9 +146,6 @@ class ClientItemCell: ThemeTableViewCell {
 
 		moreButton.setImage(UIImage(named: "more-dots"), for: .normal)
 		moreButton.contentMode = .center
-		if #available(iOS 13.4, *) {
-			moreButton.isPointerInteractionEnabled = true
-		}
 
 		moreButton.addTarget(self, action: #selector(moreButtonTapped), for: .touchUpInside)
 

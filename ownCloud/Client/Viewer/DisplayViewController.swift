@@ -78,13 +78,9 @@ class DisplayViewController: UIViewController, OCQueryDelegate {
 	// This shall be set to false if DisplayViewController sublass is able to handle streamed data (e.g. audio, video)
 	var requiresLocalItemCopy: Bool = true
 
-	private var lastSourceItemVersion : OCItemVersionIdentifier?
-	private var lastSourceItemModificationDate : Date?
 	var source: URL? {
 		didSet {
-			if self.source != nil {
-				lastSourceItemVersion = item?.localCopyVersionIdentifier ?? item?.itemVersionIdentifier
-
+			if self.source != oldValue && self.source != nil {
 				OnMainThread(inline: true) {
 					if self.shallShowPreview == true && self.canPreview(url: self.source!) {
 						self.iconImageView?.isHidden = true
@@ -164,11 +160,6 @@ class DisplayViewController: UIViewController, OCQueryDelegate {
 		metadataInfoLabel = UILabel()
 		cancelButton = ThemeButton(type: .custom)
 		showPreviewButton = ThemeButton(type: .custom)
-
-		if #available(iOS 13.4, *) {
-			PointerEffect.install(on: cancelButton!, effectStyle: .highlight)
-			PointerEffect.install(on: showPreviewButton!, effectStyle: .highlight)
-		}
 		infoLabel = UILabel()
 		progressView = UIProgressView(progressViewStyle: .bar)
 
@@ -439,50 +430,17 @@ class DisplayViewController: UIViewController, OCQueryDelegate {
 				switch query.state {
 					case .idle, .contentsFromCache, .waitingForServerReply:
 						if let firstItem = changeSet?.queryResult.first {
-							var localURLLastModified : Date?
-
-							if let localURL = self?.core?.localCopy(of: firstItem) {
-								do {
-									localURLLastModified  = (try localURL.resourceValues(forKeys: [ .contentModificationDateKey ])).contentModificationDate
-								} catch {
-									Log.error("Error fetching last modification date of \(localURL): \(error)")
-								}
-							}
-
-							let currentItem = self?.item
-
-							if (firstItem.syncActivity != .updating) &&
-							    (// Item version changed
-							     (firstItem.itemVersionIdentifier != currentItem?.itemVersionIdentifier) ||
-
-							     // Item name changed
-							     (firstItem.name != currentItem?.name) ||
-
-							     // Item already shown, this version is different from what was shown last
-							     ((self?.lastSourceItemVersion != nil) && (firstItem.itemVersionIdentifier != self?.lastSourceItemVersion)) ||
-
-							     // Item changed locally, exists locally, local file modification date changed
-							     (firstItem.locallyModified && (localURLLastModified != nil) && (localURLLastModified != self?.lastSourceItemModificationDate))
-							) {
-								if let lastModified = localURLLastModified {
-									self?.lastSourceItemModificationDate = lastModified
-								}
-
+							if (firstItem.syncActivity != .updating) && ((firstItem.itemVersionIdentifier != self?.item?.itemVersionIdentifier) || (firstItem.name != self?.item?.name)) {
 								self?.present(item: firstItem)
 							} else {
 								self?.item = firstItem
 							}
-						} else {
-							// No item available
-							Log.debug("Item \(String(describing: self?.item)) no longer available")
-							self?.item = nil
 						}
 
 						self?.updateNavigationBarItems()
 
 					case .targetRemoved:
 						self?.updateNavigationBarItems()
-
 					default: break
 				}
 			}
@@ -506,9 +464,9 @@ class DisplayViewController: UIViewController, OCQueryDelegate {
 
 				self.startQuery()
 
-				if source == nil || ((lastSourceItemVersion != nil) && (item.itemVersionIdentifier != lastSourceItemVersion) && !item.syncActivity.contains(.downloading)) || item.locallyModified /* || item.localCopyVersionIdentifier != item.itemVersionIdentifier */ {
+				if source == nil {
 					if requiresLocalItemCopy {
-						if core?.localCopy(of: item) == nil { /* || item.localCopyVersionIdentifier != item.itemVersionIdentifier { */
+						if core?.localCopy(of: item) == nil {
 							self.downloadItem(sender: nil)
 						} else {
 							core?.registerUsage(of: item, completionHandler: nil)
