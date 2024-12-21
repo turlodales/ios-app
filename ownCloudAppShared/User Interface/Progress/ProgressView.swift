@@ -18,12 +18,15 @@
 
 import UIKit
 
-public class ProgressView: UIView, Themeable, CAAnimationDelegate {
+public class ProgressView: UIView, Themeable, CAAnimationDelegate, ThemeCSSAutoSelector {
+	public var cssAutoSelectors: [ThemeCSSSelector] = [ .progress ]
+
 	var backgroundCircleLayer : CAShapeLayer = CAShapeLayer()
 	var foregroundCircleLayer : CAShapeLayer = CAShapeLayer()
 	var stopButtonLayer : CAShapeLayer = CAShapeLayer()
 
-	private let dimensions : CGSize = CGSize(width: 30, height: 30)
+	private let dimensions = CGSize(width: 30, height: 30)
+	private let minimumViewSize = CGSize(width: 50, height: 50)
 	private let circleLineWidth : CGFloat = 3
 
 	private var _observerRegistered : Bool = false
@@ -131,6 +134,16 @@ public class ProgressView: UIView, Themeable, CAAnimationDelegate {
 
 		self.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.cancel)))
 
+		self.addConstraints([
+			// Enforce minimum size of .dimensions
+			widthAnchor.constraint(greaterThanOrEqualToConstant: dimensions.width),
+			heightAnchor.constraint(greaterThanOrEqualToConstant: dimensions.height),
+
+			// Nudge Auto Layout towards using .minimumViewSize (.dimensions + extra space to make a better touch target) while allowing individual "overrides"
+			widthAnchor.constraint(equalToConstant: minimumViewSize.width).with(priority: .defaultHigh),
+			heightAnchor.constraint(equalToConstant: minimumViewSize.height).with(priority: .defaultHigh)
+		])
+
 		NotificationCenter.default.addObserver(self, selector: #selector(self.appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
 	}
 
@@ -155,10 +168,10 @@ public class ProgressView: UIView, Themeable, CAAnimationDelegate {
 		backgroundCircleLayer.fillColor = nil
 		stopButtonLayer.strokeColor = nil
 
-		foregroundCircleLayer.strokeColor = collection.progressColors.foreground.cgColor
-		backgroundCircleLayer.strokeColor = collection.progressColors.background.cgColor
+		foregroundCircleLayer.strokeColor = collection.css.getColor(.stroke, for: self)?.cgColor
+		backgroundCircleLayer.strokeColor = collection.css.getColor(.fill,   for: self)?.cgColor
 
-		stopButtonLayer.fillColor = collection.tintColor.cgColor
+		stopButtonLayer.fillColor = collection.css.getColor(.fill, selectors: [.button], for: self)?.cgColor ?? foregroundCircleLayer.strokeColor
 	}
 
 	@objc private func cancel() {

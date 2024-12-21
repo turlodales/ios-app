@@ -23,13 +23,16 @@ import ownCloudAppShared
 class FavoriteAction : Action {
 	override class var identifier : OCExtensionIdentifier? { return OCExtensionIdentifier("com.owncloud.action.favorite") }
 	override class var category : ActionCategory? { return .normal }
-	override class var name : String? { return "Favorite item".localized }
+	override class var name : String? { return OCLocalizedString("Favorite item", nil) }
 	override class var locations : [OCExtensionLocationIdentifier]? { return [.keyboardShortcut, .contextMenuItem] }
 	override class var keyCommand : String? { return "F" }
 	override class var keyModifierFlags: UIKeyModifierFlags? { return [.command, .shift] }
 
 	// MARK: - Extension matching
 	override class func applicablePosition(forContext: ActionContext) -> ActionPosition {
+		if forContext.core?.connection.capabilities?.supportsFavorites == false {
+			return .none
+		}
 		if forContext.items.filter({return $0.isRoot}).count > 0 {
 			return .none
 		} else if forContext.items.count > 0, let item = forContext.items.first, item.isFavorite == true {
@@ -55,14 +58,6 @@ class FavoriteAction : Action {
 	}
 
 	override class func iconForLocation(_ location: OCExtensionLocationIdentifier) -> UIImage? {
-		if location == .moreItem || location == .moreDetailItem || location == .contextMenuItem {
-			if #available(iOS 13.0, *) {
-				return UIImage(systemName: "star")
-			}
-
-			return UIImage(named: "star")
-		}
-
-		return nil
+		return UIImage(systemName: "star")?.withRenderingMode(.alwaysTemplate)
 	}
 }

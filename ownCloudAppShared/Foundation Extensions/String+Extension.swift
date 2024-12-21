@@ -30,14 +30,6 @@ public extension Bundle {
 
 extension String {
 
-	public var localized: String {
-		return OCLocale.localize(self)
-	}
-
-	public func localized(_ replacements: [ String : String ]) -> String {
-		return OCLocale.localize(self, options: [OCLocaleOptionKeyVariables : replacements])
-	}
-
 	public var isNumeric: Bool {
 		let nonDigitsCharacterSet = CharacterSet.decimalDigits.inverted
 		return !self.isEmpty && rangeOfCharacter(from: nonDigitsCharacterSet) == nil
@@ -61,8 +53,8 @@ extension String {
 			let regex = try NSRegularExpression(pattern: regex)
 			let results = regex.matches(in: self,
 										range: NSRange(self.startIndex..., in: self))
-			return results.map {
-				String(self[Range($0.range, in: self)!])
+			return results.map { result in
+				String(self[Range(result.range, in: self)!])
 			}
 		} catch _ {
 			return []
