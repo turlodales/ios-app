@@ -36,15 +36,15 @@ import ownCloudAppShared
 	static func toString(sec: Int) -> String {
 		switch sec {
 		case self.always.rawValue:
-			return "Immediately".localized
+			return OCLocalizedString("Immediately", nil)
 		case self.oneMinute.rawValue:
-			return "After 1 minute".localized
+			return OCLocalizedString("After 1 minute", nil)
 		case self.fiveMinutes.rawValue:
-			return "After 5 minutes".localized
+			return OCLocalizedString("After 5 minutes", nil)
 		case self.thirtyMinutes.rawValue:
-			return "After 30 minutes".localized
+			return OCLocalizedString("After 30 minutes", nil)
 		default:
-			return NSString.init(format: "After %ld seconds".localized as NSString, sec) as String
+			return NSString.init(format: OCLocalizedString("After %ld seconds", nil) as NSString, sec) as String
 		}
 	}
 }
@@ -89,7 +89,7 @@ class SecuritySettingsSection: SettingsSection {
 	override init(userDefaults: UserDefaults) {
 		super.init(userDefaults: userDefaults)
 
-		self.headerTitle = "Security".localized
+		self.headerTitle = OCLocalizedString("Security", nil)
 		self.identifier = "settings-security-section"
 
 		createRows()
@@ -110,10 +110,9 @@ class SecuritySettingsSection: SettingsSection {
 			frequencyRow = StaticTableViewRow(subtitleRowWithAction: { [weak self] (row, _) in
 				if let vc = self?.viewController {
 
-					let newVC = StaticTableViewController(style: .grouped)
-					newVC.title = "Lock application".localized
-					let frequencySection = StaticTableViewSection(headerTitle: "Lock application".localized, footerTitle: "If you choose \"Immediately\" the App will be locked, when it is no longer in foreground.".localized)
-
+					let newVC = StaticTableViewController(style: .insetGrouped)
+					newVC.title = OCLocalizedString("Lock application", nil)
+					let frequencySection = StaticTableViewSection(headerTitle: OCLocalizedString("Lock application", nil), footerTitle: OCLocalizedString("If you choose \"Immediately\" the App will be locked, when it is no longer in foreground.", nil))
 					var radioButtons: [[String : Any]] = []
 
 					for frequency in SecurityAskFrequency.allCases {
@@ -131,9 +130,9 @@ class SecuritySettingsSection: SettingsSection {
 					vc.navigationController?.pushViewController(newVC, animated: true)
 				}
 
-			}, title: "Lock application".localized, subtitle: frequency.toString(), accessoryType: .disclosureIndicator, identifier: "lockFrequency")
+			}, title: OCLocalizedString("Lock application", nil), subtitle: frequency.toString(), accessoryType: .disclosureIndicator, identifier: "lockFrequency")
 		} else {
-			frequencyRow = StaticTableViewRow(subtitleRowWithAction: nil, title: "Lock application".localized, subtitle: SecurityAskFrequency.toString(sec: AppLockSettings.shared.lockDelay), accessoryType: .none, identifier: "lockFrequency")
+			frequencyRow = StaticTableViewRow(subtitleRowWithAction: nil, title: OCLocalizedString("Lock application", nil), subtitle: SecurityAskFrequency.toString(sec: AppLockSettings.shared.lockDelay), accessoryType: .none, identifier: "lockFrequency")
 		}
 
 		// Creation of the passcode row.
@@ -152,7 +151,7 @@ class SecuritySettingsSection: SettingsSection {
 				}
 			}).start()
 
-			}, title: "Passcode Lock".localized, value: PasscodeSetupCoordinator.isPasscodeSecurityEnabled, identifier: "passcodeSwitchIdentifier")
+			}, title: OCLocalizedString("Passcode Lock", nil), value: PasscodeSetupCoordinator.isPasscodeSecurityEnabled, identifier: "passcodeSwitchIdentifier")
 
 		// Creation of the biometrical row.
 		if let biometricalSecurityName = LAContext().supportedBiometricsAuthenticationName() {
@@ -174,10 +173,8 @@ class SecuritySettingsSection: SettingsSection {
 
 		// Creation of certificate management row
 		certificateManagementRow = StaticTableViewRow(rowWithAction: { (row, _) in
-			let certificateManagementViewController = CertificateManagementViewController(style: UITableView.Style.grouped)
-
-			row.viewController?.navigationController?.pushViewController(certificateManagementViewController, animated: true)
-		}, title: "Certificates".localized, accessoryType: .disclosureIndicator, identifier: "Certificates")
+			row.viewController?.navigationController?.pushViewController(CertificateManagementViewController(style: .insetGrouped), animated: true)
+		}, title: OCLocalizedString("Certificates", nil), accessoryType: .disclosureIndicator, identifier: "Certificates")
 	}
 
 	// MARK: - Update UI

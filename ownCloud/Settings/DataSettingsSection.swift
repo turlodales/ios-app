@@ -24,17 +24,17 @@ class DataSettingsSection: SettingsSection {
 	override init(userDefaults: UserDefaults) {
 		super.init(userDefaults: userDefaults)
 
-		self.headerTitle = "Data usage".localized
+		self.headerTitle = OCLocalizedString("Data usage", nil)
 
 		cellularRow = StaticTableViewRow(valueRowWithAction: { [weak self] (_, _) in
 			self?.pushCellularSettings()
-		}, title: "Cellular Data Usage".localized, value: self.cellularSummary, accessoryType: .disclosureIndicator, identifier: "storage-use-cellular")
+		}, title: OCLocalizedString("Cellular Data Usage", nil), value: self.cellularSummary, accessoryType: .disclosureIndicator, identifier: "storage-use-cellular")
 
 		self.add(row: cellularRow!)
 
 		localCopyExpirationRow = StaticTableViewRow(valueRowWithAction: { [weak self] (_, _) in
 			self?.pushLocalCopyExpirationSettings()
-		}, title: "Delete unused local copies".localized, value: self.localCopyExpirationSummary, accessoryType: .disclosureIndicator, identifier: "storage-downloaded-files")
+		}, title: OCLocalizedString("Delete unused local copies", nil), value: self.localCopyExpirationSummary, accessoryType: .disclosureIndicator, identifier: "storage-downloaded-files")
 
 		self.add(row: localCopyExpirationRow!)
 	}
@@ -44,9 +44,9 @@ class DataSettingsSection: SettingsSection {
 
 	var cellularSummary : String {
 		if let mainEnabled = OCCellularManager.shared.switch(withIdentifier: .main)?.allowsTransfer(ofSize: 1), mainEnabled {
-			return "enabled".localized
+			return OCLocalizedString("enabled", nil)
 		} else {
-			return "off".localized
+			return OCLocalizedString("off", nil)
 		}
 	}
 
@@ -83,21 +83,21 @@ class DataSettingsSection: SettingsSection {
 		if let timeString = formatter.string(from: TimeInterval(timeInterval)) {
 			return timeString
 		} else {
-			return "on".localized
+			return OCLocalizedString("on", nil)
 		}
 	}
 
 	var localCopyExpirationSummary : String {
 		if self.localCopyExpirationEnabled {
-			return NSString(format: ("after %@".localized as NSString), formatted(timeInterval: localCopyExpiration)) as String
+			return NSString(format: (OCLocalizedString("after %@", nil) as NSString), formatted(timeInterval: localCopyExpiration)) as String
 		} else {
-			return "never".localized
+			return OCLocalizedString("never", nil)
 		}
 	}
 
 	// MARK: - Cellular settings UI
 	func pushCellularSettings() {
-		let cellularSettingsViewController = CellularSettingsViewController(style: .grouped)
+		let cellularSettingsViewController = CellularSettingsViewController(style: .insetGrouped)
 
 		cellularSettingsViewController.changeHandler = { [weak self] in
 			self?.cellularRow?.cell?.detailTextLabel?.text = self?.cellularSummary
@@ -108,8 +108,8 @@ class DataSettingsSection: SettingsSection {
 
 	// MARK: - Local copy expiration UI
 	func pushLocalCopyExpirationSettings() {
-		let localCopyExpirationViewController = StaticTableViewController(style: .grouped)
-		let localCopyExpirationSelectionSection = StaticTableViewSection(headerTitle: "Delete unused local copies".localized, footerTitle: "Time measured since uploading, editing, downloading or viewing the respective file through this device. Does not apply to files downloaded via the Available Offline feature. Local copies may be deleted before the given period of time has passed, f.ex. because there's a newer version of a file on the server - or through the manual deletion of offline copies. Also, local copies may not be deleted after the given period of time has passed, f.ex. if an action is performed on it, the file is still in use - or the account holding the file hasn't been used in the app.".localized)
+		let localCopyExpirationViewController = StaticTableViewController(style: .insetGrouped)
+		let localCopyExpirationSelectionSection = StaticTableViewSection(headerTitle: OCLocalizedString("Delete unused local copies", nil), footerTitle: OCLocalizedString("Time measured since uploading, editing, downloading or viewing the respective file through this device. Does not apply to files downloaded via the Available Offline feature. Local copies may be deleted before the given period of time has passed, f.ex. because there's a newer version of a file on the server - or through the manual deletion of offline copies. Also, local copies may not be deleted after the given period of time has passed, f.ex. if an action is performed on it, the file is still in use - or the account holding the file hasn't been used in the app.", nil))
 
 		var timeIntervals : [Int] = [
 			-1, // Off
@@ -135,9 +135,9 @@ class DataSettingsSection: SettingsSection {
 
 		let labelForTimeInterval : (Int) -> String = { (timeInterval) in
 			if timeInterval == -1 {
-				return "never".localized
+				return OCLocalizedString("never", nil)
 			} else {
-				return NSString(format: ("after %@".localized as NSString), self.formatted(timeInterval: timeInterval)) as String
+				return NSString(format: (OCLocalizedString("after %@", nil) as NSString), self.formatted(timeInterval: timeInterval)) as String
 			}
 		}
 
@@ -146,14 +146,14 @@ class DataSettingsSection: SettingsSection {
 		}
 
 		let offsetForTimeInterval : (Int) -> Int = { (timeInterval) in
-			if let offset = timeIntervals.index(of: timeInterval) {
+			if let offset = timeIntervals.firstIndex(of: timeInterval) {
 				return offset
 			}
 
 			return 0
 		}
 
-		localCopyExpirationViewController.navigationItem.title = "Storage".localized
+		localCopyExpirationViewController.navigationItem.title = OCLocalizedString("Storage", nil)
 
 		let timeIntervalRow = StaticTableViewRow(valueRowWithAction: nil, title: "", value: labelForTimeInterval(self.localCopyExpirationEnabled ? self.localCopyExpiration : -1))
 
