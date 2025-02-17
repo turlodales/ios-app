@@ -20,4 +20,29 @@
 
 @implementation FileProviderEnumeratorObserver
 
+- (void)dealloc
+{
+	if (_enumerationCompletionHandler != nil)
+	{
+		OCLogWarning(@"Enumeration completion handler not called for FileProviderEnumeratorObserver at the time of deallocation - this should not happen");
+	}
+	[self completeEnumeration];
+}
+
+- (void)completeEnumeration
+{
+	dispatch_block_t enumerationCompletionHandler;
+
+	@synchronized(self)
+	{
+		enumerationCompletionHandler = _enumerationCompletionHandler;
+		_enumerationCompletionHandler = nil;
+	}
+
+	if (enumerationCompletionHandler != nil)
+	{
+		enumerationCompletionHandler();
+	}
+}
+
 @end

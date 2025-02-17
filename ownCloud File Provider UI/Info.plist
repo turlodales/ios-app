@@ -16,6 +16,11 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>CFBundleShortVersionString</key>
 	<string>$(APP_SHORT_VERSION)</string>
 	<key>CFBundleVersion</key>
@@ -30,15 +35,7 @@
 				<key>NSExtensionFileProviderActionIdentifier</key>
 				<string>com.owncloud.FileProviderUI.Share</string>
 				<key>NSExtensionFileProviderActionName</key>
-				<string>Share with user/group</string>
-			</dict>
-			<dict>
-				<key>NSExtensionFileProviderActionActivationRule</key>
-				<string>TRUEPREDICATE</string>
-				<key>NSExtensionFileProviderActionIdentifier</key>
-				<string>com.owncloud.FileProviderUI.PublicLinks</string>
-				<key>NSExtensionFileProviderActionName</key>
-				<string>Share link</string>
+				<string>Share by cloud</string>
 			</dict>
 		</array>
 		<key>NSExtensionMainStoryboard</key>
@@ -50,6 +47,8 @@
 	<string>group.com.owncloud.ios-app</string>
 	<key>OCAppIdentifierPrefix</key>
 	<string>$(AppIdentifierPrefix)</string>
+	<key>OCAppComponentIdentifier</key>
+	<string>fileProviderUIExtension</string>
 	<key>OCKeychainAccessGroupIdentifier</key>
 	<string>group.com.owncloud.ios-app</string>
 </dict>

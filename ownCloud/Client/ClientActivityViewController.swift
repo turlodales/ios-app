@@ -20,8 +20,7 @@ import UIKit
 import ownCloudSDK
 import ownCloudAppShared
 
-class ClientActivityViewController: UITableViewController, Themeable, MessageGroupCellDelegate, ClientActivityCellDelegate {
-
+class ClientActivityViewController: UITableViewController, Themeable, MessageGroupCellDelegate, ClientActivityCellDelegate, AccountConnectionMessageUpdates, AccountConnectionStatusObserver {
 	enum ActivitySection : Int, CaseIterable {
 		case messageGroups
 		case activities
@@ -75,10 +74,61 @@ class ClientActivityViewController: UITableViewController, Themeable, MessageGro
 		}
 	}
 
-	deinit {
+	var clientContext: ClientContext?
+
+	var consumer: AccountConnectionConsumer?
+	weak var connection: AccountConnection? {
+		willSet {
+			if let consumer {
+				connection?.remove(consumer: consumer)
+			}
+		}
+
+		didSet {
+			core = connection?.core
+			messageSelector = connection?.messageSelector
+			if let consumer {
+				connection?.add(consumer: consumer)
+			}
+		}
+	}
+
+	private func setConnection(_ connection: AccountConnection?) {
+		// Work around willSet/didSet not being called when set directly in the initializer
+		self.connection = connection
+	}
+
+	init(connection: AccountConnection? = nil, clientContext: ClientContext? = nil) {
+		super.init(style: .plain)
+
+		if let connection {
+			consumer = AccountConnectionConsumer(owner: self, statusObserver: self, messageUpdateHandler: self)
+			setConnection(connection)
+		}
+
+		self.clientContext = clientContext
+	}
+
+	required init?(coder: NSCoder) {
+		fatalError("init(coder:) has not been implemented")
+	}
+
+	private func winddown() {
 		Theme.shared.unregister(client: self)
 		self.shouldPauseDisplaySleep = false
+		self.connection = nil
 		self.core = nil
+	}
+
+	deinit {
+		winddown()
+	}
+
+	func account(connection: AccountConnection, changedStatusTo status: AccountConnection.Status, initial: Bool) {
+		if core == nil {
+			core = connection.core
+			messageSelector = connection.messageSelector
+		}
 	}
 
 	@objc func handleActivityNotification(_ notification: Notification) {
@@ -140,7 +190,7 @@ class ClientActivityViewController: UITableViewController, Themeable, MessageGro
 			self.tableView.reloadData()
 
 			if (activities?.count ?? 0) == 0, (messageGroups?.count ?? 0) == 0 {
-				self.messageView?.message(show: true, imageName: "status-flash", title: "All done".localized, message: "No pending messages or ongoing actions.".localized)
+				self.messageView?.message(show: true, imageName: "status-flash", title: OCLocalizedString("All done", nil), message: OCLocalizedString("No pending messages or ongoing actions.", nil))
 			} else {
 				self.messageView?.message(show: false)
 			}
@@ -170,7 +220,7 @@ class ClientActivityViewController: UITableViewController, Themeable, MessageGro
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
 
-		self.navigationItem.title = "Status".localized
+		self.navigationItem.title = OCLocalizedString("Status", nil)
 	}
 
 	override func viewDidAppear(_ animated: Bool) {
@@ -273,14 +323,18 @@ class ClientActivityViewController: UITableViewController, Themeable, MessageGro
 		   let activities = activities,
 		   let nodeGenerator = activities[indexPath.row] as? DiagnosticNodeGenerator, nodeGenerator.isDiagnosticNodeGenerationAvailable {
 			return UISwipeActionsConfiguration(actions: [
-				UIContextualAction(style: .normal, title: "Info".localized, handler: { [weak self] (_, _, completionHandler) in
-					let context = OCDiagnosticContext(core: self?.core)
+				UIContextualAction(style: .normal, title: OCLocalizedString("Info", nil), handler: { [weak self] (_, _, completionHandler) in
+					let diagnosticContext = OCDiagnosticContext(core: self?.core)
 
-					nodeGenerator.provideDiagnosticNode(for: context, completion: { [weak self] (groupNode, style) in
+					nodeGenerator.provideDiagnosticNode(for: diagnosticContext, completion: { [weak self] (groupNode, style) in
 						guard let groupNode = groupNode else { return }
 
 						OnMainThread {
-							self?.navigationController?.pushViewController(DiagnosticViewController(for: groupNode, context: context, style: style), animated: true)
+							guard let clientContext = self?.clientContext else { return }
+
+							clientContext.pushViewControllerToNavigation(context: clientContext, provider: { context in
+								return DiagnosticViewController(for: groupNode, context: diagnosticContext, clientContext: clientContext, style: style)
+							}, push: true, animated: true)
 						}
 					})
 					completionHandler(true)

@@ -34,104 +34,7 @@ INCLUDE_IN_CLASS_SETTINGS_SNAPSHOTS(Branding)
 	// Provide hook to allow Swift extensions in the app to register defaults and metadata
 	if ([self conformsToProtocol:@protocol(BrandingInitialization)])
 	{
-		if (@available(iOS 13, *))
-		{
-			[((Class<BrandingInitialization>)self) initializeBranding];
-		}
-		else
-		{
-			// BEGIN: Workaround for iOS 12 Swift crash bug - this code is usually in +initializeBranding in ownCloudAppShared.framework - remove when dropping iOS 12 support
-			[self registerOCClassSettingsDefaults:@{
-				@"url-documentation" 	: @"https://doc.owncloud.com/ios-app/",
-				@"url-help" 	  	: @"https://owncloud.com/docs-guides/",
-				@"url-privacy" 	  	: @"https://owncloud.org/privacy-policy/",
-				@"url-terms-of-use" 	: @"https://raw.githubusercontent.com/owncloud/ios-app/master/LICENSE",
-
-				@"send-feedback-address" : @"ios-app@owncloud.com",
-
-				@"can-add-account" : @(YES),
-				@"can-edit-account" : @(YES),
-				@"enable-review-prompt" : @(NO)
-			} metadata:@{
-				@"url-documentation" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeURLString,
-					OCClassSettingsMetadataKeyDescription 	: @"URL to documentation for the app. Opened when selecting \"Documentation\" in the settings.",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced,
-					OCClassSettingsMetadataKeyCategory	: @"Branding"
-				},
-
-				@"url-help" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeURLString,
-					OCClassSettingsMetadataKeyDescription 	: @"URL to help for the app. Opened when selecting \"Help\" in the settings.",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced,
-					OCClassSettingsMetadataKeyCategory	: @"Branding"
-				},
-
-				@"url-privacy" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeURLString,
-					OCClassSettingsMetadataKeyDescription 	: @"URL to privacy information for the app. Opened when selecting \"Privacy\" in the settings.",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced,
-					OCClassSettingsMetadataKeyCategory	: @"Branding"
-				},
-
-				@"url-terms-of-use" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeURLString,
-					OCClassSettingsMetadataKeyDescription 	: @"URL to terms of use for the app. Opened when selecting \"Terms Of Use\" in the settings.",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced,
-					OCClassSettingsMetadataKeyCategory	: @"Branding"
-				},
-
-				@"send-feedback-address" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeString,
-					OCClassSettingsMetadataKeyDescription	: @"Email address to send feedback to. Set to `null` to disable this feature.",
-					OCClassSettingsMetadataKeyCategory	: @"Branding",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced
-				},
-
-				@"can-add-account" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeBoolean,
-					OCClassSettingsMetadataKeyDescription	: @"Controls whether the user can add accounts.",
-					OCClassSettingsMetadataKeyCategory	: @"Branding",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced
-				},
-
-				@"can-edit-account" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeBoolean,
-					OCClassSettingsMetadataKeyDescription	: @"Controls whether the user can edit accounts.",
-					OCClassSettingsMetadataKeyCategory	: @"Branding",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced
-				},
-
-				@"enable-review-prompt" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeBoolean,
-					OCClassSettingsMetadataKeyDescription	: @"Controls whether the app should prompt for an App Store review.",
-					OCClassSettingsMetadataKeyCategory	: @"Branding",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced
-				},
-
-				@"profile-definitions" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeDictionaryArray,
-					OCClassSettingsMetadataKeyDescription	: @"Array of dictionaries, each specifying a static profile.",
-					OCClassSettingsMetadataKeyCategory	: @"Branding",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced
-				},
-
-				@"theme-generic-colors" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeDictionary,
-					OCClassSettingsMetadataKeyDescription	: @"Dictionary defining generic colors that can be used in the definitions.",
-					OCClassSettingsMetadataKeyCategory	: @"Branding",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced
-				},
-
-				@"theme-definitions" : @{
-					OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeDictionaryArray,
-					OCClassSettingsMetadataKeyDescription	: @"Array of dictionaries, each specifying a theme.",
-					OCClassSettingsMetadataKeyCategory	: @"Branding",
-					OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced
-				}
-			}];
-			// END: Workaround for iOS 12 Swift crash bug - this code is usually in +initializeBranding in ownCloudAppShared.framework - remove when dropping iOS 12 support
-		}
+		[((Class<BrandingInitialization>)self) initializeBranding];
 	}
 
 	// Provide hook to allow Swift extensions in the app to register defaults and metadata
@@ -172,6 +75,7 @@ INCLUDE_IN_CLASS_SETTINGS_SNAPSHOTS(Branding)
 		_brandingPlistURL = [appBundle URLForResource:@"Branding" withExtension:@"plist"];
 
 		_allowBranding = YES;
+		_allowThemeSelection = YES;
 
 		NSData *brandingPlistData;
 
@@ -260,6 +164,35 @@ INCLUDE_IN_CLASS_SETTINGS_SNAPSHOTS(Branding)
 	return ([self computedValueForClassSettingsKey:BrandingKeyUserDefaultsDefaultValues]);
 }
 
+- (NSArray<NSString *> *)appURLSchemesForBundleURLName:(nullable NSString *)bundleURLName
+{
+	NSBundle *appBundle;
+	NSMutableArray<NSString *> *appURLSchemes = [NSMutableArray new];
+
+	if ((appBundle = self.appBundle) != nil)
+	{
+		NSArray<NSDictionary *> *urlSchemeDictionaries;
+
+		if ((urlSchemeDictionaries = [appBundle objectForInfoDictionaryKey:@"CFBundleURLTypes"]) != nil)
+		{
+			for (NSDictionary<NSString *, id> *urlSchemesDict in urlSchemeDictionaries)
+			{
+				if ((bundleURLName == nil) || [bundleURLName isEqual:urlSchemesDict[@"CFBundleURLName"]])
+				{
+					NSArray<NSString *> *urlSchemes;
+
+					if ((urlSchemes = urlSchemesDict[@"CFBundleURLSchemes"]) != nil)
+					{
+						[appURLSchemes addObjectsFromArray:urlSchemes];
+					}
+				}
+			}
+		}
+	}
+
+	return (appURLSchemes);
+}
+
 - (NSArray<BrandingFileImportMethod> *)disabledImportMethods
 {
 	return ([self computedValueForClassSettingsKey:BrandingKeyDisabledImportMethods]);
@@ -278,6 +211,21 @@ INCLUDE_IN_CLASS_SETTINGS_SNAPSHOTS(Branding)
 - (nullable UIImage *)brandedImageNamed:(BrandingImageName)imageName
 {
 	return ([UIImage imageNamed:imageName inBundle:self.appBundle compatibleWithTraitCollection:nil]);
+}
+
+- (nullable UIImage *)brandedImageNamed:(BrandingImageName)imageName assetSuffix:(BrandingAssetSuffix)assetSuffix
+{
+	UIImage *image = nil;
+
+	if (assetSuffix != nil) {
+		image = [UIImage imageNamed:[imageName stringByAppendingFormat:@"-%@", assetSuffix] inBundle:self.appBundle compatibleWithTraitCollection:nil];
+	}
+
+	if (image == nil) {
+		image = [UIImage imageNamed:imageName inBundle:self.appBundle compatibleWithTraitCollection:nil];
+	}
+
+	return (image);
 }
 
 - (nullable id)computedValueForClassSettingsKey:(OCClassSettingsKey)classSettingsKey

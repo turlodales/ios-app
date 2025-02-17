@@ -18,6 +18,7 @@
 
 import Foundation
 import UIKit
+import ownCloudSDK
 
 private enum CardPosition {
 	case half
@@ -147,9 +148,8 @@ final class CardPresentationController: UIPresentationController, Themeable {
 	}
 
 	func applyThemeCollection(theme: Theme, collection: ThemeCollection, event: ThemeEvent) {
-		overStretchView.backgroundColor = collection.tableGroupBackgroundColor
-		dragHandleView.backgroundColor = collection.tableSeparatorColor
-
+		overStretchView.backgroundColor = collection.css.getColor(.fill, selectors: [.grouped, .table], for:overStretchView)
+		dragHandleView.backgroundColor = collection.css.getColor(.fill, selectors: [.separator], for:dragHandleView)
 	}
 
 	private func offset(for position: CardPosition, translatedBy: CGFloat = 0, allowOverStretch: Bool = false) -> CGFloat {
@@ -239,7 +239,7 @@ final class CardPresentationController: UIPresentationController, Themeable {
 		}
 
 		dragHandleView.accessibilityTraits = [.button]
-		dragHandleView.accessibilityLabel = "Close actions menu".localized
+		dragHandleView.accessibilityLabel = OCLocalizedString("Close actions menu", nil)
 		dragHandleView.isAccessibilityElement = true
 
 		PointerEffect.install(on: dragHandleView, effectStyle: .hoverScaled)
@@ -417,7 +417,7 @@ extension CardPresentationController: UIGestureRecognizerDelegate {
 
 // MARK: - Convenience addition to UIViewController
 extension UIViewController {
-	open func present(asCard viewController: UIViewController, animated: Bool, withHandle: Bool = true, dismissable: Bool = true, completion: (() -> Void)? = nil) {
+	public func present(asCard viewController: UIViewController, animated: Bool, withHandle: Bool = true, dismissable: Bool = true, completion: (() -> Void)? = nil) {
 		let animator = CardTransitionDelegate(viewControllerToPresent: viewController, presentingViewController: self, withHandle: withHandle, dismissable: dismissable)
 
 		viewController.transitioningDelegate = animator // .transitioningDelegate is only weak!

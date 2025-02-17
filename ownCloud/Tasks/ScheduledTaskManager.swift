@@ -145,11 +145,9 @@ class ScheduledTaskManager : NSObject {
 		locationManager.delegate = self
 		#endif
 
-		if #available(iOS 13, *) {
-			BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.owncloud.background-refresh-task", using: nil) { (task) in
-				if let refreshTask = task as? BGAppRefreshTask {
-					self.handleBackgroundRefresh(task: refreshTask)
-				}
+		BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.owncloud.background-refresh-task", using: nil) { (task) in
+			if let refreshTask = task as? BGAppRefreshTask {
+				self.handleBackgroundRefresh(task: refreshTask)
 			}
 		}
 	}
@@ -163,14 +161,14 @@ class ScheduledTaskManager : NSObject {
 				#if !DISABLE_BACKGROUND_LOCATION
 				stopLocationMonitoring()
 				#endif
+
 			case UIApplication.didEnterBackgroundNotification:
 				state = .background
 				#if !DISABLE_BACKGROUND_LOCATION
 				startLocationMonitoringIfAuthorized()
 				#endif
-				if #available(iOS 13, *) {
-					scheduleBackgroundRefreshTask()
-				}
+				scheduleBackgroundRefreshTask()
+
 			default:
 				break
 		}
@@ -279,15 +277,13 @@ class ScheduledTaskManager : NSObject {
 						fetchCompletion?(.noData)
 					}
 
-					if #available(iOS 13, *) {
-						if let activeTask = self.activeRefreshTask as? BGAppRefreshTask {
-							// Schedule the next refresh
-							self.scheduleBackgroundRefreshTask()
+					if let activeTask = self.activeRefreshTask as? BGAppRefreshTask {
+						// Schedule the next refresh
+						self.scheduleBackgroundRefreshTask()
 
-							activeTask.setTaskCompleted(success: true)
+						activeTask.setTaskCompleted(success: true)
 
-							self.activeRefreshTask = nil
-						}
+						self.activeRefreshTask = nil
 					}
 				}
 				Log.debug(tagged: ["TASK_MANAGER"], "All tasks executed")
@@ -311,7 +307,6 @@ class ScheduledTaskManager : NSObject {
 
 // MARK: - Background tasks handling for iOS >= 13
 
-@available(iOS 13, *)
 extension ScheduledTaskManager {
 
 	static let backgroundRefreshInterval = TimeInterval(15 * 60)
@@ -419,7 +414,7 @@ extension ScheduledTaskManager : CLLocationManagerDelegate {
 	@discardableResult func startLocationMonitoringIfAuthorized() -> Bool {
 		guard let userDefaults = OCAppIdentity.shared.userDefaults else { return false }
 
-		if CLLocationManager.authorizationStatus() == .authorizedAlways && userDefaults.backgroundMediaUploadsLocationUpdatesEnabled {
+		if locationManager.authorizationStatus == .authorizedAlways && userDefaults.backgroundMediaUploadsLocationUpdatesEnabled {
 			Log.debug(tagged: ["TASK_MANAGER", "MEDIA_UPLOAD"], "Significant location monitoring has started")
 			startLocationTracking()
 			return true
@@ -429,13 +424,13 @@ extension ScheduledTaskManager : CLLocationManagerDelegate {
 	}
 
 	func stopLocationMonitoring() {
-		if CLLocationManager.authorizationStatus() == .authorizedAlways || CLLocationManager.authorizationStatus() == .authorizedWhenInUse {
+		if locationManager.authorizationStatus == .authorizedAlways || locationManager.authorizationStatus == .authorizedWhenInUse {
 			stopLocationTracking()
 		}
 	}
 
 	func requestLocationAuthorization() -> Bool {
-		let currentStatus = CLLocationManager.authorizationStatus()
+		let currentStatus = locationManager.authorizationStatus
 		switch currentStatus {
 		case .notDetermined, .authorizedWhenInUse:
 			self.locationManager.requestAlwaysAuthorization()

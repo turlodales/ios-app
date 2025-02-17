@@ -30,10 +30,13 @@ class LicenseOfferButton: ThemeButton {
 		self.translatesAutoresizingMaskIntoConstraints = false
 		self.setContentCompressionResistancePriority(.required, for: .horizontal)
 		self.setContentCompressionResistancePriority(.required, for: .vertical)
+		self.configuration = .filled()
 		self.buttonFont = UIFont.systemFont(ofSize: UIFont.labelFontSize)
 		self.buttonVerticalPadding = -5
 		self.buttonHorizontalPadding = 23
 		self.buttonCornerRadius = .round
+
+		self.cssSelector = .purchase
 
 		originalTitle = title
 		self.setTitle(title, for: .normal)
@@ -47,10 +50,13 @@ class LicenseOfferButton: ThemeButton {
 		super.init(frame: .zero)
 
 		self.translatesAutoresizingMaskIntoConstraints = false
+		self.configuration = .filled()
 		self.buttonFont = UIFont.systemFont(ofSize: UIFont.labelFontSize)
 
 		self.buttonVerticalPadding = 15
 		self.buttonCornerRadius = .medium
+
+		self.cssSelector = .purchase
 
 		self.setTitle(title, for: .normal)
 
