@@ -26,16 +26,21 @@ class CancelLabelViewController: UIViewController {
 	@IBOutlet var label : UILabel!
 	@IBOutlet var button : ThemeButton!
 
-	var cancelAction: (() -> Void)?
+	typealias CancelAction = (() -> Void)
 
-	func updateCancelLabels(with message: String) {
+	var cancelAction: CancelAction?
+
+	func updateCancelLabels(with message: String, buttonLabel: String? = nil) {
 		let collection = Theme.shared.activeCollection
-		self.view.backgroundColor = collection.toolbarColors.backgroundColor
-		self.label.textColor = collection.toolbarColors.labelColor
-		self.button.setTitleColor(collection.toolbarColors.labelColor, for: .normal)
-		self.button.backgroundColor = collection.neutralColors.normal.background
+
+		view.cssSelector = .toolbar
+		button.cssSelector = .cancel
+
+		view.apply(css: collection.css, properties: [.fill])
+		label.apply(css: collection.css, properties: [.stroke])
+
 		self.label.text = message
-		self.button.setTitle("Cancel".localized, for: .normal)
+		self.button.setTitle(buttonLabel ?? OCLocalizedString("Cancel", nil), for: .normal)
 	}
 
 	@IBAction func cancelScreen() {

@@ -26,6 +26,7 @@ typedef NSString* BrandingLegacyKey;
 typedef OCClassSettingsKey BrandingKey NS_TYPED_EXTENSIBLE_ENUM;
 typedef NSString* BrandingFileImportMethod NS_TYPED_EXTENSIBLE_ENUM;
 typedef NSString* BrandingImageName NS_TYPED_EXTENSIBLE_ENUM;
+typedef NSString* BrandingAssetSuffix NS_TYPED_EXTENSIBLE_ENUM;
 
 @protocol BrandingInitialization <NSObject>
 + (void)initializeBranding;
@@ -41,8 +42,11 @@ typedef NSString* BrandingImageName NS_TYPED_EXTENSIBLE_ENUM;
 
 @property(strong,nonatomic,readonly,class) Branding *sharedBranding;
 @property(assign,nonatomic) BOOL allowBranding; //!< YES if branding is allowed. If NO, computedValueForClassSettingsKey returns only default values.
+@property(assign,nonatomic) BOOL allowThemeSelection; //!< YES if theme selection is allowed
 
 @property(strong,nullable,nonatomic,readonly) NSBundle *appBundle; //!< Bundle of the main app
+
+- (NSArray<NSString *> *)appURLSchemesForBundleURLName:(nullable NSString *)bundleURLName; //!< URL schemes from the app's Info.plist matching the provided CFBundleURLName.
 
 @property(strong) NSDictionary<OCClassSettingsKey, BrandingLegacyKeyPath> *legacyKeyPathsByClassSettingsKeys;
 - (void)registerLegacyKeyPath:(BrandingLegacyKeyPath)keyPath forClassSettingsKey:(OCClassSettingsKey)classSettingsKey;
@@ -58,6 +62,7 @@ typedef NSString* BrandingImageName NS_TYPED_EXTENSIBLE_ENUM;
 - (BOOL)isImportMethodAllowed:(BrandingFileImportMethod)importMethod;
 
 - (nullable UIImage *)brandedImageNamed:(BrandingImageName)imageName; //!< Returns the respective image from the appBundle
+- (nullable UIImage *)brandedImageNamed:(BrandingImageName)imageName assetSuffix:(nullable BrandingAssetSuffix)assetSuffix; //!< Returns the respective image from the appBundle, trying to retrieve a more specific asset with the provided suffix (if provided)
 
 - (nullable id)computedValueForClassSettingsKey:(OCClassSettingsKey)classSettingsKey;
 - (nullable NSURL *)urlForClassSettingsKey:(OCClassSettingsKey)settingsKey;

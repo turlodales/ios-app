@@ -22,6 +22,17 @@ import MediaPlayer
 import ownCloudSDK
 import ownCloudAppShared
 import CoreServices
+import UniformTypeIdentifiers
+
+extension AVPlayer {
+    var isAudioAvailable: Bool? {
+        return self.currentItem?.asset.tracks.filter({$0.mediaType == .audio}).count != 0
+    }
+
+    var isVideoAvailable: Bool? {
+        return self.currentItem?.asset.tracks.filter({$0.mediaType == .video}).count != 0
+    }
+}
 
 class MediaDisplayViewController : DisplayViewController {
 
@@ -58,6 +69,41 @@ class MediaDisplayViewController : DisplayViewController {
 		NotificationCenter.default.removeObserver(self, name: UIApplication.didEnterBackgroundNotification, object: nil)
 		NotificationCenter.default.removeObserver(self, name: UIApplication.willEnterForegroundNotification, object: nil)
 		NotificationCenter.default.removeObserver(self, name: Notification.Name.AVPlayerItemDidPlayToEndTime, object: nil)
+	}
+
+	var showLoadingIndicator: Bool = false {
+		didSet {
+			if oldValue != showLoadingIndicator {
+				if showLoadingIndicator {
+					// Show loading indicator
+					let indeterminateProgress: Progress = .indeterminate()
+					indeterminateProgress.isCancellable = false
+
+					let messageView = ComposedMessageView.infoBox(additionalElements: [
+						.spacing(25),
+						.progressCircle(with: indeterminateProgress),
+						.spacing(25),
+						.title(OCLocalizedString("Loading…", nil), alignment: .centered)
+					], withRoundedBackgroundView: true)
+
+					loadingIndicator = messageView
+				} else {
+					// Remove loading indicator
+					loadingIndicator = nil
+				}
+			}
+		}
+	}
+
+	private var loadingIndicator: ComposedMessageView? {
+		willSet {
+			loadingIndicator?.removeFromSuperview()
+		}
+		didSet {
+			if let loadingIndicator {
+				view.embed(centered: loadingIndicator)
+			}
+		}
 	}
 
 	override func viewDidLoad() {
@@ -103,7 +149,28 @@ class MediaDisplayViewController : DisplayViewController {
 		return (OCAppIdentity.shared.userDefaults?.downloadMediaFiles ?? false)
 	}
 
+	private var timeControlStatusObservation: NSKeyValueObservation?
+
 	override func renderItem(completion: @escaping (Bool) -> Void) {
+		if playerViewController == nil {
+			playerViewController = AVPlayerViewController()
+
+			if let playerViewController {
+				addChild(playerViewController)
+				self.view.addSubview(playerViewController.view)
+				playerViewController.didMove(toParent: self)
+
+				playerViewController.view.translatesAutoresizingMaskIntoConstraints = false
+
+				NSLayoutConstraint.activate([
+					playerViewController.view.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor),
+					playerViewController.view.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor),
+					playerViewController.view.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
+					playerViewController.view.trailingAnchor.constraint(equalTo: self.view.trailingAnchor)
+				])
+			}
+		}
+
 		if let directURL = itemDirectURL {
 			playerItemStatusObservation?.invalidate()
 			playerItemStatusObservation = nil
@@ -121,64 +188,26 @@ class MediaDisplayViewController : DisplayViewController {
 			if player == nil {
 				player = AVPlayer(playerItem: playerItem)
 				player?.allowsExternalPlayback = true
-				playerViewController = AVPlayerViewController()
-				if let playerViewController = self.playerViewController {
+				if let playerViewController {
 					playerViewController.updatesNowPlayingInfoCenter = false
 
 					if UIApplication.shared.applicationState == .active {
 						playerViewController.player = player
 					}
-
-					addChild(playerViewController)
-					self.view.addSubview(playerViewController.view)
-					playerViewController.didMove(toParent: self)
-
-					playerViewController.view.translatesAutoresizingMaskIntoConstraints = false
-
-					NSLayoutConstraint.activate([
-						playerViewController.view.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor),
-						playerViewController.view.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor),
-						playerViewController.view.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
-						playerViewController.view.trailingAnchor.constraint(equalTo: self.view.trailingAnchor)
-					])
 				}
 
-				// Add artwork to the player overlay if corresponding meta data item is available in the asset
-				if let artworkMetadataItem = asset.commonMetadata.filter({$0.commonKey == AVMetadataKey.commonKeyArtwork}).first,
-					let imageData = artworkMetadataItem.dataValue,
-					let overlayView = playerViewController?.contentOverlayView {
+				// Start with the loading indicator active
+				showLoadingIndicator = true
 
-					if let artworkImage = UIImage(data: imageData) {
-
-						// Construct image view overlay for AVPlayerViewController
-						let imageView = UIImageView(image: artworkImage)
-						imageView.translatesAutoresizingMaskIntoConstraints = false
-						imageView.contentMode = .scaleAspectFit
-						playerViewController?.contentOverlayView?.addSubview(imageView)
-
-						NSLayoutConstraint.activate([
-							imageView.leadingAnchor.constraint(equalTo: overlayView.leadingAnchor),
-							imageView.trailingAnchor.constraint(equalTo: overlayView.trailingAnchor),
-							imageView.topAnchor.constraint(equalTo: overlayView.topAnchor),
-							imageView.bottomAnchor.constraint(equalTo: overlayView.bottomAnchor)
-						])
-
-						// Create MPMediaItemArtwork to be shown in 'now playing' in the lock screen
-						mediaItemArtwork = MPMediaItemArtwork(boundsSize: artworkImage.size, requestHandler: { (_) -> UIImage in
-							return artworkImage
-						})
-					}
-				}
-
-				// Extract title meta-data item
-				mediaItemTitle = asset.commonMetadata.filter({$0.commonKey == AVMetadataKey.commonKeyTitle}).first?.value as? String
-
-				// Extract artist meta-data item
-				mediaItemArtist = asset.commonMetadata.filter({$0.commonKey == AVMetadataKey.commonKeyArtist}).first?.value as? String
+				// .. it will be updated as soon as the player starts playing ..
+				timeControlStatusObservation = player?.observe(\AVPlayer.timeControlStatus, changeHandler: { [weak self] player, change in
+					self?.updateLoadingIndicator()
+				})
 
 				// Setup player status observation handler
 				playerStatusObservation = player!.observe(\AVPlayer.status, options: [.initial, .new], changeHandler: { [weak self] (player, _) in
 					if player.status == .readyToPlay {
+						self?.updateMediaMetadata()
 
 						self?.setupRemoteTransportControls()
 
@@ -186,7 +215,11 @@ class MediaDisplayViewController : DisplayViewController {
 						try? AVAudioSession.sharedInstance().setActive(true)
 
 						if (self?.hasFocus)! {
+							// .. with playback starting here.
 							self?.player?.play()
+						} else {
+							// .. or the loading indicator being updated when the file is ready to play, here.
+							self?.updateLoadingIndicator()
 						}
 
 						self?.updateNowPlayingInfoCenter()
@@ -204,11 +237,60 @@ class MediaDisplayViewController : DisplayViewController {
 		}
 	}
 
+	private func updateLoadingIndicator() {
+		if let player {
+			let showLoadingIndicator = (player.timeControlStatus == .waitingToPlayAtSpecifiedRate)
+
+			OnMainThread(inline: true) {
+				self.showLoadingIndicator = showLoadingIndicator
+			}
+		}
+	}
+
+	private func updateMediaMetadata() {
+		guard let asset = playerItem?.asset else { return }
+
+		// Add artwork to the player overlay if corresponding meta data item is available in the asset
+		if !(player?.isVideoAvailable ?? false), let artworkMetadataItem = asset.commonMetadata.filter({$0.commonKey == AVMetadataKey.commonKeyArtwork}).first,
+		   let imageData = artworkMetadataItem.dataValue,
+		   let overlayView = playerViewController?.contentOverlayView {
+
+			if let artworkImage = UIImage(data: imageData) {
+
+				// Construct image view overlay for AVPlayerViewController
+				OnMainThread(inline: true) { [weak self] in
+					let imageView = UIImageView(image: artworkImage)
+					imageView.translatesAutoresizingMaskIntoConstraints = false
+					imageView.contentMode = .scaleAspectFit
+					self?.playerViewController?.contentOverlayView?.addSubview(imageView)
+
+					NSLayoutConstraint.activate([
+						imageView.leadingAnchor.constraint(equalTo: overlayView.leadingAnchor),
+						imageView.trailingAnchor.constraint(equalTo: overlayView.trailingAnchor),
+						imageView.topAnchor.constraint(equalTo: overlayView.topAnchor),
+						imageView.bottomAnchor.constraint(equalTo: overlayView.bottomAnchor)
+					])
+				}
+
+				// Create MPMediaItemArtwork to be shown in 'now playing' in the lock screen
+				mediaItemArtwork = MPMediaItemArtwork(boundsSize: artworkImage.size, requestHandler: { (_) -> UIImage in
+					return artworkImage
+				})
+			}
+		}
+
+		// Extract title meta-data item
+		mediaItemTitle = asset.commonMetadata.filter({$0.commonKey == AVMetadataKey.commonKeyTitle}).first?.value as? String
+
+		// Extract artist meta-data item
+		mediaItemArtist = asset.commonMetadata.filter({$0.commonKey == AVMetadataKey.commonKeyArtist}).first?.value as? String
+	}
+
 	private func present(error:Error?) {
 		guard let error = error else { return }
 
 		OnMainThread { [weak self] in
-			let alert = ThemedAlertController(with: "Error".localized, message: error.localizedDescription, okLabel: "OK".localized, action: {
+			let alert = ThemedAlertController(with: OCLocalizedString("Error", nil), message: error.localizedDescription, okLabel: OCLocalizedString("OK", nil), action: {
 				self?.navigationController?.popViewController(animated: true)
 			})
 
@@ -216,12 +298,18 @@ class MediaDisplayViewController : DisplayViewController {
 		}
 	}
 
+	private var isInBackground: Bool = false {
+		didSet {
+			playerViewController?.player = isInBackground ? nil : player
+		}
+	}
+
 	@objc private func handleDidEnterBackgroundNotification() {
-		playerViewController?.player = nil
+		isInBackground = true
 	}
 
 	@objc private func handleWillEnterForegroundNotification() {
-		playerViewController?.player = player
+		isInBackground = false
 	}
 
 	@objc private func handleAVPlayerItem(notification:Notification) {
@@ -426,7 +514,7 @@ extension MediaDisplayViewController: DisplayExtension {
 	static var customMatcher: OCExtensionCustomContextMatcher? = { (context, defaultPriority) in
 		if let mimeType = context.location?.identifier?.rawValue {
 
-			if MediaDisplayViewController.mimeTypeConformsTo(mime: mimeType, utTypeClass: kUTTypeAudiovisualContent) {
+			if MediaDisplayViewController.mimeTypeConformsTo(mime: mimeType, utType: UTType.audiovisualContent) {
 				return OCExtensionPriority.locationMatch
 			}
 		}

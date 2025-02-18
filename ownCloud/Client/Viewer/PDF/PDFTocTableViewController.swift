@@ -22,7 +22,7 @@ import ownCloudAppShared
 
 class PDFTocTableViewController: UITableViewController, Themeable {
 
-    let activityIndicatorView: UIActivityIndicatorView = UIActivityIndicatorView(style: UIActivityIndicatorView.Style.whiteLarge)
+    let activityIndicatorView: UIActivityIndicatorView = UIActivityIndicatorView(style: .large)
 
     fileprivate let tocTableViewCellHeight: CGFloat = 40.0
     fileprivate var enableTocBuilding = true
@@ -75,10 +75,6 @@ class PDFTocTableViewController: UITableViewController, Themeable {
         super.viewWillDisappear(animated)
         enableTocBuilding = false
         Theme.shared.unregister(client: self)
-    }
-
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
     }
 
 	override func viewDidLayoutSubviews() {

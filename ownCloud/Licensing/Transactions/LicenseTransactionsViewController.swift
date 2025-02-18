@@ -21,16 +21,17 @@
 import UIKit
 import ownCloudApp
 import ownCloudAppShared
+import StoreKit
 
 class LicenseTransactionsViewController: StaticTableViewController {
 	init() {
 		super.init(style: .grouped)
 
-		self.navigationItem.title = "Purchases".localized
+		self.navigationItem.title = OCLocalizedString("Purchases & Subscriptions", nil)
 
 		self.toolbarItems = [
 			UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
-			UIBarButtonItem(title: "Restore purchases".localized, style: .plain, target: self, action: #selector(restorePurchases)),
+			UIBarButtonItem(title: OCLocalizedString("Restore purchases", nil), style: .plain, target: self, action: #selector(restorePurchases)),
 			UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
 		]
 
@@ -40,9 +41,9 @@ class LicenseTransactionsViewController: StaticTableViewController {
 	func fetchTransactions() {
 		OCLicenseManager.shared.retrieveAllTransactions(completionHandler: { (error, transactionsByProvider) in
 			if let error = error {
-				let alert = UIAlertController(title: "Error fetching transactions".localized, message: error.localizedDescription, preferredStyle: .alert)
+				let alert = ThemedAlertController(title: OCLocalizedString("Error fetching transactions", nil), message: error.localizedDescription, preferredStyle: .alert)
 
-				alert.addAction(UIAlertAction(title: "OK".localized, style: .default, handler: nil))
+				alert.addAction(UIAlertAction(title: OCLocalizedString("OK", nil), style: .default, handler: nil))
 
 				self.present(alert, animated: true, completion: nil)
 			}
@@ -90,7 +91,23 @@ class LicenseTransactionsViewController: StaticTableViewController {
 
 					if let links = transaction.links {
 						for (title, url) in links {
-							section.add(row: StaticTableViewRow(rowWithAction: { (_, _) in
+							section.add(row: StaticTableViewRow(rowWithAction: { [weak self] (_, _) in
+								#if !targetEnvironment(macCatalyst)
+								if url == OCLicenseAppStoreProvider.appStoreManagementURL, let windowScene = self?.view.window?.windowScene, !ProcessInfo.processInfo.isiOSAppOnMac {
+									Task {
+										do {
+											try await AppStore.showManageSubscriptions(in: windowScene)
+										} catch {
+											Log.error("Error \(error) showing subscription manager")
+
+											// Fallback to URL
+											UIApplication.shared.open(url, options: [:], completionHandler: nil)
+										}
+									}
+									return
+								}
+								#endif
+
 								UIApplication.shared.open(url, options: [:], completionHandler: nil)
 							}, title: title, alignment: .center))
 						}

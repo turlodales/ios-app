@@ -15,14 +15,10 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode_12.4.app
+#     - name: Select Xcode
+#       run: sudo xcode-select -switch /Applications/Xcode_14.3.app
       - name: Xcode version
         run: /usr/bin/xcodebuild -version
-      - name: Install Cocoapods
-        run: gem install cocoapods
-      - name: Run Pod Install
-        run: pod install
       - name: Install gomplate
         run: brew install gomplate
       - name: Run Generate Docs
@@ -32,4 +28,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: Configuration documentation updated
-          file_pattern: doc/CONFIGURATION.json docs/modules/ROOT/pages/ios_mdm_tables.adoc
+          file_pattern: doc/CONFIGURATION.json doc/configuration.adoc
