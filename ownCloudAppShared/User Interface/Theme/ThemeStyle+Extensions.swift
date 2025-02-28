@@ -20,17 +20,6 @@ import Foundation
 import ownCloudSDK
 import ownCloudApp
 
-@available(iOS 13.0, *)
-extension UIUserInterfaceStyle {
-	func themeCollectionStyles() -> [ThemeCollectionStyle] {
-		if self == .dark {
-			return [.dark]
-		}
-
-		return [.light, .contrast]
-	}
-}
-
 extension ThemeStyle {
 	public func themeStyleExtension(isDefault: Bool = false, isBranding: Bool = false) -> OCExtension {
 		let features : [String:Any] = [
@@ -58,7 +47,7 @@ extension ThemeStyle {
 
 		Log.error("Couldn't get defaultStyle")
 
-		return ThemeStyle.ownCloudDark
+		return ThemeStyle.systemDark()
 	}
 
 	static public var preferredStyle : ThemeStyle {
@@ -93,8 +82,8 @@ extension ThemeStyle {
 	}
 
 	static public var displayName : String {
-		if #available(iOS 13, *), ThemeStyle.followSystemAppearance {
-			return "System".localized
+		if ThemeStyle.followSystemAppearance {
+			return OCLocalizedString("System", nil)
 		}
 
 		return ThemeStyle.preferredStyle.localizedName
@@ -109,18 +98,14 @@ extension ThemeStyle {
 		let rootView : UIView? = UserInterfaceContext.shared.rootView
 		var applyStyle : ThemeStyle? = ThemeStyle.preferredStyle
 
-		if #available(iOS 13, *) {
-			if self.followSystemAppearance {
-				if ThemeStyle.userInterfaceStyle() == .dark {
-					if let darkStyleIdentifier = ThemeStyle.preferredStyle.darkStyleIdentifier, let style = ThemeStyle.forIdentifier(darkStyleIdentifier) {
-						ThemeStyle.preferredStyle = style
-						applyStyle = style
-					}
-				} else {
-					if ThemeStyle.preferredStyle.themeStyle == .dark, let style = ThemeStyle.availableStyles(for: [.contrast])?.first {
-						ThemeStyle.preferredStyle = style
-						applyStyle = style
-					}
+		if self.followSystemAppearance {
+			if ThemeStyle.userInterfaceStyle() == .dark {
+				if let style = ThemeStyle.forIdentifier("com.owncloud.dark") {
+					applyStyle = style
+				}
+			} else {
+				if let style = ThemeStyle.forIdentifier("com.owncloud.light") {
+					applyStyle = style
 				}
 			}
 		}
@@ -128,11 +113,9 @@ extension ThemeStyle {
 		if let applyStyle = applyStyle {
 			let themeCollection = ThemeCollection(with: applyStyle)
 
-			if #available(iOS 13, *) {
-				if let themeWindowSubviews = rootView?.subviews {
-					for view in themeWindowSubviews {
-						view.overrideUserInterfaceStyle = themeCollection.interfaceStyle.userInterfaceStyle
-					}
+			if let themeWindowSubviews = rootView?.subviews {
+				for view in themeWindowSubviews {
+					view.overrideUserInterfaceStyle = themeCollection.css.getUserInterfaceStyle()
 				}
 			}
 
@@ -159,7 +142,7 @@ extension ThemeStyle {
 			}
 
 			if followSystemAppearance == nil {
-				followSystemAppearance = false
+				followSystemAppearance = true
 			}
 
 			return followSystemAppearance!
@@ -200,9 +183,8 @@ extension ThemeStyle {
 
 	static public func registerDefaultStyles() {
 		if !Branding.shared.setupThemeStyles() {
-			OCExtensionManager.shared.addExtension(ThemeStyle.ownCloudLight.themeStyleExtension())
-			OCExtensionManager.shared.addExtension(ThemeStyle.ownCloudDark.themeStyleExtension(isDefault: true))
-			OCExtensionManager.shared.addExtension(ThemeStyle.ownCloudClassic.themeStyleExtension())
+			OCExtensionManager.shared.addExtension(ThemeStyle.systemLight().themeStyleExtension(isDefault: true))
+			OCExtensionManager.shared.addExtension(ThemeStyle.systemDark().themeStyleExtension())
 		}
 	}
 

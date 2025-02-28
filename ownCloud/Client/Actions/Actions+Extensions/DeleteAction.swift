@@ -22,8 +22,8 @@ import ownCloudAppShared
 class DeleteAction : Action {
 	override class var identifier : OCExtensionIdentifier? { return OCExtensionIdentifier("com.owncloud.action.delete") }
 	override class var category : ActionCategory? { return .destructive }
-	override class var name : String? { return "Delete".localized }
-	override class var locations : [OCExtensionLocationIdentifier]? { return [.moreItem, .moreDetailItem, .tableRow, .moreFolder, .toolbar, .keyboardShortcut, .contextMenuItem] }
+	override class var name : String? { return OCLocalizedString("Delete", nil) }
+	override class var locations : [OCExtensionLocationIdentifier]? { return [.moreItem, .moreDetailItem, .tableRow, .moreFolder, .multiSelection, .dropAction, .keyboardShortcut, .contextMenuItem] }
 	override class var keyCommand : String? { return "\u{08}" }
 	override class var keyModifierFlags: UIKeyModifierFlags? { return [.command] }
 
@@ -52,16 +52,16 @@ class DeleteAction : Action {
 
 		let message: String
 		if items.count > 1 {
-			message = "Are you sure you want to delete these items from the server?".localized
+			message = OCLocalizedString("Are you sure you want to delete these items from the server?", nil)
 		} else {
-			message = "Are you sure you want to delete this item from the server?".localized
+			message = OCLocalizedString("Are you sure you want to delete this item from the server?", nil)
 		}
 
 		let itemDescripton: String?
 		if items.count > 1 {
-			itemDescripton = "Multiple items".localized
+			itemDescripton = OCLocalizedString("Multiple items", nil)
 		} else {
-			itemDescripton = items.first?.name
+			itemDescripton = items.first?.name?.redacted()
 		}
 
 		guard let name = itemDescripton else {
@@ -86,7 +86,7 @@ class DeleteAction : Action {
 		let alertController = ThemedAlertController(
 			with: name,
 			message: message,
-			destructiveLabel: "Delete".localized,
+			destructiveLabel: OCLocalizedString("Delete", nil),
 			preferredStyle: UIDevice.current.isIpad ? UIAlertController.Style.alert : UIAlertController.Style.actionSheet,
 			destructiveAction: {
 				deleteItemAndPublishProgress(items)
@@ -97,10 +97,6 @@ class DeleteAction : Action {
 	}
 
 	override class func iconForLocation(_ location: OCExtensionLocationIdentifier) -> UIImage? {
-		if location == .moreItem || location == .moreDetailItem || location == .moreFolder || location == .contextMenuItem {
-			return UIImage(named: "trash")
-		}
-
-		return nil
+		return UIImage(named: "trash")?.withRenderingMode(.alwaysTemplate)
 	}
 }

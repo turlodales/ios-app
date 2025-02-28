@@ -28,7 +28,7 @@ platform :ios do
    lane :build_ipa_ad_hoc do
     #Create the build
     gym(
-      workspace: "ownCloud.xcworkspace",
+      project: "ownCloud.xcodeproj",
       scheme: "ownCloud",
       codesigning_identity: "Apple Distribution: ownCloud GmbH (4AP2STM4H5)",
       export_method: "ad-hoc",
@@ -39,7 +39,8 @@ platform :ios do
 	        "com.owncloud.ios-app.ownCloud-File-Provider" => "match AdHoc com.owncloud.ios-app.ownCloud-File-Provider",
 	        "com.owncloud.ios-app.ownCloud-File-ProviderUI" => "match AdHoc com.owncloud.ios-app.ownCloud-File-ProviderUI",
 	        "com.owncloud.ios-app.ownCloud-Intents" => "match AdHoc com.owncloud.ios-app.ownCloud-Intents",
-          "com.owncloud.ios-app.ownCloud-Share-Extension" => "match AdHoc com.owncloud.ios-app.ownCloud-Share-Extension"
+          "com.owncloud.ios-app.ownCloud-Share-Extension" => "match AdHoc com.owncloud.ios-app.ownCloud-Share-Extension",
+          "com.owncloud.ios-app.ownCloud-Action-Extension" => "match AdHoc com.owncloud.ios-app.ownCloud-Action-Extension"
           #Add more Provisioning Profiles when extensions are added
         }
       }
@@ -98,7 +99,7 @@ platform :ios do
           puts("Creating Screenshots…")
           reset_simulators
           snapshot
-          frameit(white: false, path: './fastlane/screenshots')
+          frameit(white: false, path: './doc/images/')
         end
 
         # Push Release Notes or Screenshot changes to git
@@ -180,14 +181,13 @@ platform :ios do
           prepare_metadata(
           	create_release_notes: options[:create_release_notes],
           	create_screenshots: options[:create_screenshots],
-          	app_name: "ownCloud",
+          	app_name: "ownCloud EMM",
           	metadata_path: 'fastlane/metadata-emm/en-US/release_notes.txt'
           )
 
           puts("Build EMM iOS App…")
-          # Set EMM App-Icon for App Build
-          sh "mv ../ownCloud/Resources/Assets.xcassets/AppIcon.appiconset/ ../ownCloud/Resources/Assets.xcassets/AppIcon-regular.appiconset/"
-          sh "mv ../ownCloud/Resources/Assets.xcassets/AppIcon-emm.appiconset/ ../ownCloud/Resources/Assets.xcassets/AppIcon.appiconset/"
+          # Moving all EMM resources to the correct place
+          sh "cp -R ../ownCloud/Resources/Theming/com.owncloud.ios-app.emm/*.png ../ownCloud/Resources/Theming/branding-assets/"
 
           # Build App
           owncloud_emm_build()
@@ -222,30 +222,10 @@ platform :ios do
 
         puts("Build ownCloud Online iOS App…")
 
-        # Moving the ownCloud.online Branding.plist to the correct place
-        sh "mv ../ownCloud/Resources/Theming/Branding.plist ../ownCloud/Resources/Theming/Branding-regular.plist"
-        sh "mv ../ownCloud/Resources/Theming/Branding-owncloud-online.plist ../ownCloud/Resources/Theming/Branding.plist"
-
-        # Set ownCloud.online Splashscreen Background for App Build
-        sh "mv ../ownCloud/Resources/Theming/branding-splashscreen-background.png ../ownCloud/Resources/Theming/branding-splashscreen-background-regular.png"
-        sh "mv ../ownCloud/Resources/Theming/branding-splashscreen-background-owncloud-online.png ../ownCloud/Resources/Theming/branding-splashscreen-background.png"
-
-        # Set ownCloud.online Splashscreen Logo for App Build
-        sh "mv ../ownCloud/Resources/Theming/branding-splashscreen.png ../ownCloud/Resources/Theming/branding-splashscreen-regular.png"
-        sh "mv ../ownCloud/Resources/Theming/branding-splashscreen-owncloud-online.png ../ownCloud/Resources/Theming/branding-splashscreen.png"
-
-        # Set ownCloud.online Branded Login Logo for App Build
-        sh "mv ../ownCloud/Resources/Theming/branding-login-logo.png ../ownCloud/Resources/Theming/branding-login-logo-regular.png"
-        sh "mv ../ownCloud/Resources/Theming/branding-login-logo-owncloud-online.png ../ownCloud/Resources/Theming/branding-login-logo.png"
-
-        # Set ownCloud.online Branded Login Background for App Build
-        sh "mv ../ownCloud/Resources/Theming/branding-login-background.png ../ownCloud/Resources/Theming/branding-login-background-regular.png"
-        sh "mv ../ownCloud/Resources/Theming/branding-login-background-owncloud-online.png ../ownCloud/Resources/Theming/branding-login-background.png"
-
-        # Set ownCloud.online App-Icon for App Build
-        sh "mv ../ownCloud/Resources/Assets.xcassets/AppIcon.appiconset/ ../ownCloud/Resources/Assets.xcassets/AppIcon-regular.appiconset/"
-        sh "mv ../ownCloud/Resources/Assets.xcassets/AppIcon-ownCloud-online.appiconset/ ../ownCloud/Resources/Assets.xcassets/AppIcon.appiconset/"
-
+        # Moving all ownCloud.online resources to the correct place
+        sh "cp -R  ../ownCloud/Resources/Theming/online.owncloud.ios-app/*.png ../ownCloud/Resources/Theming/branding-assets/"
+        sh "cp ../ownCloud/Resources/Theming/online.owncloud.ios-app/Branding.plist ../ownCloud/Resources/Theming/"
+        
         # Build App
         owncloud_online_build()
 
@@ -280,6 +260,8 @@ platform :ios do
       ENTERPRISE_INTENT_PROFILE: "match AppStore com.owncloud.ios-app.ownCloud-Intents",
       ENTERPRISE_SHARE_EXTENSION_ID: "com.owncloud.ios-app.ownCloud-Share-Extension",
       ENTERPRISE_SHARE_EXTENSION_PROFILE: "match AppStore com.owncloud.ios-app.ownCloud-Share-Extension",
+      ENTERPRISE_ACTION_EXTENSION_ID: "com.owncloud.ios-app.ownCloud-Action-Extension",
+      ENTERPRISE_ACTION_EXTENSION_PROFILE: "match AppStore com.owncloud.ios-app.ownCloud-Action-Extension",
       ENTERPRISE_APP_FW_ID: "com.owncloud.ownCloudApp",
       ENTERPRISE_TEAM: "4AP2STM4H5",
       ENTERPRISE_IDENTITY: "Apple Distribution: ownCloud GmbH (4AP2STM4H5)",
@@ -305,6 +287,8 @@ platform :ios do
       ENTERPRISE_INTENT_PROFILE: "match AppStore com.owncloud.ios-app.emm.ownCloud-Intents",
       ENTERPRISE_SHARE_EXTENSION_ID: "com.owncloud.ios-app.emm.ownCloud-Share-Extension",
       ENTERPRISE_SHARE_EXTENSION_PROFILE: "match AppStore com.owncloud.ios-app.emm.ownCloud-Share-Extension",
+      ENTERPRISE_ACTION_EXTENSION_ID: "com.owncloud.ios-app.emm.ownCloud-Action-Extension",
+      ENTERPRISE_ACTION_EXTENSION_PROFILE: "match AppStore com.owncloud.ios-app.emm.ownCloud-Action-Extension",
       ENTERPRISE_APP_FW_ID: "com.owncloud.ownCloudApp.emm",
       ENTERPRISE_TEAM: "4AP2STM4H5",
       ENTERPRISE_IDENTITY: "Apple Distribution: ownCloud GmbH (4AP2STM4H5)",
@@ -312,7 +296,7 @@ platform :ios do
       EXPORT_METHOD: "app-store",
       CONFIGURATION: "Release",
       BETA_APP_ICON: false,
-      APP_NAME: "ownCloud",
+      APP_NAME: "ownCloud EMM",
       URL_SCHEME: "owncloud-emm",
       IPA_NAME: "ownCloud-emm"
     )
@@ -330,6 +314,8 @@ lane :owncloud_online_build do
     ENTERPRISE_INTENT_PROFILE: "ownCloud online AppStore Intents",
     ENTERPRISE_SHARE_EXTENSION_ID: "online.owncloud.ios-app.ShareExtApp",
     ENTERPRISE_SHARE_EXTENSION_PROFILE: "ownCloud online AppStore Share Ext",
+    ENTERPRISE_ACTION_EXTENSION_ID: "online.owncloud.ios-app.Action-Extension",
+    ENTERPRISE_ACTION_EXTENSION_PROFILE: "ownCloud online AppStore Action Extension",
     ENTERPRISE_APP_FW_ID: "online.owncloud.ios-app.ownCloudApp",
     ENTERPRISE_TEAM: "4AP2STM4H5",
     ENTERPRISE_IDENTITY: "Apple Distribution: ownCloud GmbH",
@@ -345,21 +331,23 @@ end
 
   lane :owncloud_branding_adhoc_build do |values|
     build_ipa_in_house(
-      ENTERPRISE_APP_ID: "com.owncloud.enterprise.ios-app",
-      ENTERPRISE_APP_PROFILE: "Enterprise Distribution iOS Neo",
-      ENTERPRISE_FP_ID: "com.owncloud.enterprise.ios-app.ownCloud-File-Provider",
-      ENTERPRISE_FP_PROFILE: "Enterprise Distribution iOS Neo File Provider",
-      ENTERPRISE_FP_UI_ID: "com.owncloud.enterprise.ios-app.ownCloud-File-ProviderUI",
-      ENTERPRISE_FP_UI_PROFILE: "Enterprise Distribution iOS Neo File ProviderUI",
-      ENTERPRISE_INTENT_ID: "com.owncloud.enterprise.ios-app.ownCloud-Intents",
-      ENTERPRISE_INTENT_PROFILE: "Enterprise Distribution iOS Neo Intent",
-      ENTERPRISE_SHARE_EXTENSION_ID: "com.owncloud.enterprise.ios-app.ownCloud-Share-Extension",
-      ENTERPRISE_SHARE_EXTENSION_PROFILE: "Enterprise Distribution iOS Neo Share Extension",
-      ENTERPRISE_APP_FW_ID: "com.owncloud.enterprise.ownCloudApp",
-      ENTERPRISE_TEAM: "5QNK8L2PSC",
-      ENTERPRISE_IDENTITY: "iPhone Distribution: ownCloud GmbH",
-      APP_GROUP_IDENTIFIERS: "group.com.owncloud.enterprise.ios-app",
-      EXPORT_METHOD: "enterprise",
+      ENTERPRISE_APP_ID: "com.owncloud.ios-app",
+      ENTERPRISE_APP_PROFILE: "Adhoc ownCloud iOS App",
+      ENTERPRISE_FP_ID: "com.owncloud.ios-app.ownCloud-File-Provider",
+      ENTERPRISE_FP_PROFILE: "Adhoc ownCloud iOS App File Provider",
+      ENTERPRISE_FP_UI_ID: "com.owncloud.ios-app.ownCloud-File-ProviderUI",
+      ENTERPRISE_FP_UI_PROFILE: "Adhoc ownCloud iOS App File Provider UI",
+      ENTERPRISE_INTENT_ID: "com.owncloud.ios-app.ownCloud-Intents",
+      ENTERPRISE_INTENT_PROFILE: "Adhoc ownCloud iOS App Intents",
+      ENTERPRISE_SHARE_EXTENSION_ID: "com.owncloud.ios-app.ownCloud-Share-Extension",
+      ENTERPRISE_SHARE_EXTENSION_PROFILE: "Adhoc ownCloud iOS App Share Extension",
+      ENTERPRISE_ACTION_EXTENSION_ID: "com.owncloud.ios-app.ownCloud-Action-Extension",
+      ENTERPRISE_ACTION_EXTENSION_PROFILE: "Adhoc ownCloud iOS App Action Extension",
+      ENTERPRISE_APP_FW_ID: "com.owncloud.ownCloudApp",
+      ENTERPRISE_TEAM: "4AP2STM4H5",
+      ENTERPRISE_IDENTITY: "Apple Distribution: ownCloud GmbH",
+      APP_GROUP_IDENTIFIERS: "group.com.owncloud.ios-app",
+      EXPORT_METHOD: "ad-hoc",
       CONFIGURATION: "Release",
       BETA_APP_ICON: false,
       BUILD_NUMBER: values[:BUILD_NUMBER]
@@ -378,6 +366,8 @@ end
       ENTERPRISE_INTENT_PROFILE: "match AppStore com.owncloud.ios-app.ownCloud-Intents",
       ENTERPRISE_SHARE_EXTENSION_ID: "com.owncloud.ios-app.ownCloud-Share-Extension",
       ENTERPRISE_SHARE_EXTENSION_PROFILE: "match AppStore com.owncloud.ios-app.ownCloud-Share-Extension",
+      ENTERPRISE_ACTION_EXTENSION_ID: "com.owncloud.ios-app.ownCloud-Action-Extension",
+      ENTERPRISE_ACTION_EXTENSION_PROFILE: "match AppStore com.owncloud.ios-app.ownCloud-Action-Extension",
       ENTERPRISE_APP_FW_ID: "com.owncloud.ownCloudApp",
       ENTERPRISE_TEAM: "4AP2STM4H5",
       ENTERPRISE_IDENTITY: "Apple Distribution: ownCloud GmbH (4AP2STM4H5)",
@@ -401,21 +391,23 @@ end
 
   lane :owncloud_enterprise_build do
     build_ipa_in_house(
-      ENTERPRISE_APP_ID: "com.owncloud.enterprise.ios-app",
-      ENTERPRISE_APP_PROFILE: "Enterprise Distribution iOS Neo",
-      ENTERPRISE_FP_ID: "com.owncloud.enterprise.ios-app.ownCloud-File-Provider",
-      ENTERPRISE_FP_PROFILE: "Enterprise Distribution iOS Neo File Provider",
-      ENTERPRISE_FP_UI_ID: "com.owncloud.enterprise.ios-app.ownCloud-File-ProviderUI",
-      ENTERPRISE_FP_UI_PROFILE: "Enterprise Distribution iOS Neo File ProviderUI",
-      ENTERPRISE_INTENT_ID: "com.owncloud.enterprise.ios-app.ownCloud-Intents",
-      ENTERPRISE_INTENT_PROFILE: "Enterprise Distribution iOS Neo Intent",
-      ENTERPRISE_SHARE_EXTENSION_ID: "com.owncloud.enterprise.ios-app.ownCloud-Share-Extension",
-      ENTERPRISE_SHARE_EXTENSION_PROFILE: "Enterprise Distribution iOS Neo Share Extension",
-      ENTERPRISE_APP_FW_ID: "com.owncloud.enterprise.ownCloudApp",
-      ENTERPRISE_TEAM: "5QNK8L2PSC",
+      ENTERPRISE_APP_ID: "com.owncloud.ios-app",
+      ENTERPRISE_APP_PROFILE: "Adhoc ownCloud iOS App",
+      ENTERPRISE_FP_ID: "com.owncloud.ios-app.ownCloud-File-Provider",
+      ENTERPRISE_FP_PROFILE: "Adhoc ownCloud iOS App File Provider",
+      ENTERPRISE_FP_UI_ID: "com.owncloud.ios-app.ownCloud-File-ProviderUI",
+      ENTERPRISE_FP_UI_PROFILE: "Adhoc ownCloud iOS App File Provider UI",
+      ENTERPRISE_INTENT_ID: "com.owncloud.ios-app.ownCloud-Intents",
+      ENTERPRISE_INTENT_PROFILE: "Adhoc ownCloud iOS App Intents",
+      ENTERPRISE_SHARE_EXTENSION_ID: "com.owncloud.ios-app.ownCloud-Share-Extension",
+      ENTERPRISE_SHARE_EXTENSION_PROFILE: "Adhoc ownCloud iOS App Share Extension",
+      ENTERPRISE_ACTION_EXTENSION_ID: "com.owncloud.ios-app.ownCloud-Action-Extension",
+      ENTERPRISE_ACTION_EXTENSION_PROFILE: "Adhoc ownCloud iOS App Action Extension",
+      ENTERPRISE_APP_FW_ID: "com.owncloud.ownCloudApp",
+      ENTERPRISE_TEAM: "4AP2STM4H5",
       ENTERPRISE_IDENTITY: "iPhone Distribution: ownCloud GmbH",
-      APP_GROUP_IDENTIFIERS: "group.com.owncloud.enterprise.ios-app",
-      EXPORT_METHOD: "enterprise",
+      APP_GROUP_IDENTIFIERS: "group.com.owncloud.ios-app",
+      EXPORT_METHOD: "ad-hoc",
       CONFIGURATION: "Debug",
       BETA_APP_ICON: true,
       APP_NAME: "ownCloud",
@@ -424,13 +416,18 @@ end
   end
 
   lane :generate_appicon do
-    iconPath = "ownCloud/Resources/Theming/icon-1024.png"
-    if File.exist?("../" + iconPath)
+  
+    iconPath = "ownCloud/Resources/Theming/branding-assets/"
+    iconName = "branding-icon.png"  
+    outputIconPath = "../ownCloud/Resources/Assets.xcassets/"
+    outputIconName = "AppIcon.appiconset"
+    if File.exist?("../" + iconPath + iconName)
+      sh("rm -rf " + outputIconPath + outputIconName + "/*")
       appicon(
-        appicon_image_file: iconPath,
+        appicon_image_file: iconPath + iconName,
         appicon_devices: [:ipad, :iphone, :ios_marketing],
         appicon_path: "ownCloud/Resources/Assets.xcassets/",
-        appicon_name: "AppIcon.appiconset"
+        appicon_name: outputIconName
       )
     end
   end
@@ -448,6 +445,8 @@ end
     ENTERPRISE_INTENT_PROFILE = values[:ENTERPRISE_INTENT_PROFILE]
     ENTERPRISE_SHARE_EXTENSION_ID = values[:ENTERPRISE_SHARE_EXTENSION_ID]
     ENTERPRISE_SHARE_EXTENSION_PROFILE = values[:ENTERPRISE_SHARE_EXTENSION_PROFILE]
+    ENTERPRISE_ACTION_EXTENSION_ID = values[:ENTERPRISE_ACTION_EXTENSION_ID]
+    ENTERPRISE_ACTION_EXTENSION_PROFILE = values[:ENTERPRISE_ACTION_EXTENSION_PROFILE]
     ENTERPRISE_APP_FW_ID = values[:ENTERPRISE_APP_FW_ID]
     ENTERPRISE_APP_SHARED_ID = "com.owncloud.ownCloudAppShared"
     ENTERPRISE_TEAM = values[:ENTERPRISE_TEAM]
@@ -463,8 +462,7 @@ end
     if File.exist?(xcode_version_paths)
       required_version = File.read(xcode_version_paths).strip
       puts "Found required Xcode version: " + required_version
-      xcversion(version: required_version)
-      ensure_xcode_version()
+      ensure_xcode_version(version: required_version)
     end
 
     appName = "ownCloud"
@@ -547,6 +545,12 @@ end
         sh "mv ../ownCloud/Resources/Info.plist.mod ../ownCloud/Resources/Info.plist"
     end
 
+    # Special handling for app build flag DISABLE_PLAIN_HTTP (see above why this is needed)
+    if appBuildFlags.include? "DISABLE_PLAIN_HTTP"
+        sh "sed '/#ifndef DISABLE_PLAIN_HTTP/,/#endif/d' ../ownCloud/Resources/Info.plist >../ownCloud/Resources/Info.plist.mod"
+        sh "mv ../ownCloud/Resources/Info.plist.mod ../ownCloud/Resources/Info.plist"
+    end
+
 	# update_url_schemes can't seem to reach the second URL scheme ("oc") for authentication
 	# so using sed and a XML property instead
     if !appCustomAppScheme.empty?
@@ -565,7 +569,7 @@ end
     # Check, if Branding.plist file exists and handle custom set values
     if File.exist?("../" + themePath)
       # Check for custom app version number
-        tmpCustomAppVersionNumber = get_info_plist_value(path: themePath, key: "app.version-number")
+        tmpCustomAppVersionNumber = get_info_plist_value(path: themePath, key: "build.version-number")
         if tmpCustomAppVersionNumber && !tmpCustomAppVersionNumber.empty?
           customAppVersionNumber = tmpCustomAppVersionNumber
 
@@ -574,6 +578,7 @@ end
           set_info_plist_value(path: "ownCloud File Provider/Info.plist", key: "CFBundleShortVersionString", value: customAppVersionNumber)
           set_info_plist_value(path: "ownCloud File Provider UI/Info.plist", key: "CFBundleShortVersionString", value: customAppVersionNumber)
           set_info_plist_value(path: "ownCloud Share Extension/Info.plist", key: "CFBundleShortVersionString", value: customAppVersionNumber)
+          set_info_plist_value(path: "ownCloud Action Extension/Info.plist", key: "CFBundleShortVersionString", value: customAppVersionNumber)
           set_info_plist_value(path: "ownCloud Intents/Info.plist", key: "CFBundleShortVersionString", value: customAppVersionNumber)
         end
 
@@ -597,6 +602,7 @@ end
       set_info_plist_value(path: "ownCloud File Provider/Info.plist", key: "CFBundleVersion", value: BUILD_NUMBER)
       set_info_plist_value(path: "ownCloud File Provider UI/Info.plist", key: "CFBundleVersion", value: BUILD_NUMBER)
       set_info_plist_value(path: "ownCloud Share Extension/Info.plist", key: "CFBundleVersion", value: BUILD_NUMBER)
+      set_info_plist_value(path: "ownCloud Action Extension/Info.plist", key: "CFBundleVersion", value: BUILD_NUMBER)
       set_info_plist_value(path: "ownCloud Intents/Info.plist", key: "CFBundleVersion", value: BUILD_NUMBER)
     end
 
@@ -617,6 +623,34 @@ end
 
     set_info_plist_value(path: "ownCloud Share Extension/Info.plist", key: "CFBundleDisplayName", value: "Share to " + appName)
     set_info_plist_value(path: "ownCloud Share Extension/Info.plist", key: "CFBundleName", value: appName)
+
+    set_info_plist_value(path: "ownCloud Action Extension/Info.plist", key: "CFBundleDisplayName", value: "Save to " + appName)
+    set_info_plist_value(path: "ownCloud Action Extension/Info.plist", key: "CFBundleName", value: appName)
+    
+    # Read InfoPlist.xcstrings JSON content from the file
+    json_file_path = "../ownCloud Action Extension/InfoPlist.xcstrings"
+    json_content = File.read(json_file_path)
+    json_data = JSON.parse(json_content)
+    
+    # Update the CFBundleDisplayName value for all localizations
+    if json_data["strings"] && json_data["strings"]["CFBundleDisplayName"]
+        UI.message("CFBundleDisplayName key found, updating values...")
+        
+        json_data["strings"]["CFBundleDisplayName"]["localizations"].each do |locale, localization_data|
+          old_value = localization_data["stringUnit"]["value"]
+          
+          # Replace "ownCloud" with appName
+          new_value = old_value.gsub("ownCloud", appName)
+          localization_data["stringUnit"]["value"] = new_value
+        end
+      else
+        UI.error("CFBundleDisplayName key not found in the JSON data!")
+      end
+    
+    # Write the updated JSON back to the file
+    File.open(json_file_path, "w") do |f|
+      f.write(JSON.pretty_generate(json_data))
+    end
 
     update_app_identifier(
       xcodeproj: "ownCloud.xcodeproj",
@@ -654,6 +688,12 @@ end
       app_identifier: ENTERPRISE_SHARE_EXTENSION_ID
     )
 
+    update_app_identifier(
+      xcodeproj: "ownCloud.xcodeproj",
+      plist_path: "ownCloud Action Extension/Info.plist",
+      app_identifier: ENTERPRISE_ACTION_EXTENSION_ID
+    )
+
     update_app_group_identifiers(
       entitlements_file: "ownCloud/ownCloud.entitlements",
       app_group_identifiers: [APP_GROUP_IDENTIFIERS]
@@ -696,6 +736,15 @@ end
     )
     update_keychain_access_groups(
       entitlements_file: "ownCloud Share Extension/ownCloud Share Extension.entitlements",
+      identifiers: [ENTERPRISE_TEAM + "." + APP_GROUP_IDENTIFIERS]
+	)
+
+    update_app_group_identifiers(
+      entitlements_file: "ownCloud Action Extension/ownCloud Action Extension.entitlements",
+      app_group_identifiers: [APP_GROUP_IDENTIFIERS]
+    )
+    update_keychain_access_groups(
+      entitlements_file: "ownCloud Action Extension/ownCloud Action Extension.entitlements",
       identifiers: [ENTERPRISE_TEAM + "." + APP_GROUP_IDENTIFIERS]
 	)
 
@@ -708,6 +757,8 @@ end
     set_info_plist_value(path: "ownCloud Intents/Info.plist", key: "OCKeychainAccessGroupIdentifier", value: OC_APP_GROUP_IDENTIFIERS)
     set_info_plist_value(path: "ownCloud Share Extension/Info.plist", key: "OCAppGroupIdentifier", value: OC_APP_GROUP_IDENTIFIERS)
     set_info_plist_value(path: "ownCloud Share Extension/Info.plist", key: "OCKeychainAccessGroupIdentifier", value: OC_APP_GROUP_IDENTIFIERS)
+    set_info_plist_value(path: "ownCloud Action Extension/Info.plist", key: "OCAppGroupIdentifier", value: OC_APP_GROUP_IDENTIFIERS)
+    set_info_plist_value(path: "ownCloud Action Extension/Info.plist", key: "OCKeychainAccessGroupIdentifier", value: OC_APP_GROUP_IDENTIFIERS)
     set_info_plist_value(path: "ownCloud/Resources/Info.plist", key: "OCAppGroupIdentifier", value: OC_APP_GROUP_IDENTIFIERS)
     set_info_plist_value(path: "ownCloud/Resources/Info.plist", key: "OCKeychainAccessGroupIdentifier", value: OC_APP_GROUP_IDENTIFIERS)
 
@@ -775,6 +826,16 @@ end
       use_automatic_signing: false,
       team_id: ENTERPRISE_TEAM,
       code_sign_identity: ENTERPRISE_IDENTITY,
+      profile_name: ENTERPRISE_ACTION_EXTENSION_PROFILE,
+      bundle_identifier: ENTERPRISE_ACTION_EXTENSION_ID,
+      targets: ["ownCloud Action Extension"]
+    )
+
+    automatic_code_signing(
+      path: "ownCloud.xcodeproj",
+      use_automatic_signing: false,
+      team_id: ENTERPRISE_TEAM,
+      code_sign_identity: ENTERPRISE_IDENTITY,
       bundle_identifier: ENTERPRISE_APP_SHARED_ID,
       targets: ["ownCloudAppShared"]
     )
@@ -824,22 +885,30 @@ end
 
     #Create the build
     build_app(
-      workspace: "ownCloud.xcworkspace",
+      project: "ownCloud.xcodeproj",
       scheme: "ownCloud",
       configuration: CONFIGURATION,
       codesigning_identity: ENTERPRISE_IDENTITY,
       output_name: ipaName,
       export_method: EXPORT_METHOD,
-      xcargs: "APP_BUILD_FLAGS='" + appBuildFlags + "'",
+      xcargs: "CODE_SIGN_STYLE=Manual APP_BUILD_FLAGS='" + appBuildFlags + "'",
       export_options: {
         method: EXPORT_METHOD,
         provisioningProfiles: {
           ENTERPRISE_APP_ID => ENTERPRISE_APP_PROFILE,
 	        ENTERPRISE_FP_ID => ENTERPRISE_FP_PROFILE,
 	        ENTERPRISE_INTENT_ID => ENTERPRISE_INTENT_PROFILE,
-	        ENTERPRISE_SHARE_EXTENSION_ID => ENTERPRISE_SHARE_EXTENSION_PROFILE
+	        ENTERPRISE_SHARE_EXTENSION_ID => ENTERPRISE_SHARE_EXTENSION_PROFILE,
+	        ENTERPRISE_ACTION_EXTENSION_ID => ENTERPRISE_ACTION_EXTENSION_PROFILE
         }
       }
     )
+    
+    
+    
+    if appBuildFlags.include? "REMOVE_EXTENSION_INTENTS"
+        sh "../removeExtension.sh \"../" + ipaName.gsub("/", "_") + "\" \"ownCloud Intents\""
+    end
+
   end
 end

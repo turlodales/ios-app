@@ -22,7 +22,7 @@ import ownCloudAppShared
 class PDFGoToPageAction : Action {
 	override class var identifier : OCExtensionIdentifier? { return OCExtensionIdentifier("com.owncloud.action.pdfpage") }
 	override class var category : ActionCategory? { return .normal }
-	override class var name : String? { return "Go to page".localized }
+	override class var name : String? { return OCLocalizedString("Go to page", nil) }
 	override class var keyCommand : String? { return "G" }
 	override class var keyModifierFlags: UIKeyModifierFlags? { return [.command] }
 	override class var locations : [OCExtensionLocationIdentifier]? { return [.moreDetailItem, .keyboardShortcut] }
@@ -47,14 +47,6 @@ class PDFGoToPageAction : Action {
 	}
 
 	override class func iconForLocation(_ location: OCExtensionLocationIdentifier) -> UIImage? {
-		if location == .moreDetailItem {
-			if #available(iOS 13.0, *) {
-				return UIImage(systemName: "arrow.up.doc")?.withRenderingMode(.alwaysTemplate)
-			} else {
-				return UIImage(named: "ic_pdf_go_to_page")
-			}
-		}
-
-		return nil
+		return UIImage(systemName: "arrow.up.doc")?.withRenderingMode(.alwaysTemplate)
 	}
 }

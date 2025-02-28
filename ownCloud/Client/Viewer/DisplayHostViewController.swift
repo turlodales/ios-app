@@ -20,8 +20,11 @@ import UIKit
 import ownCloudSDK
 import ownCloudAppShared
 
-class DisplayHostViewController: UIPageViewController {
+class DisplayExtensionContext: OCExtensionContext {
+	public var clientContext: ClientContext?
+}
 
+class DisplayHostViewController: UIPageViewController {
 	enum PagePosition {
 		case before, after
 	}
@@ -30,7 +33,7 @@ class DisplayHostViewController: UIPageViewController {
 	let mediaFilterRegexp: String = "\\A(((image|audio|video)/*))" // Filters all the mime types that are images (incluiding gif and svg)
 
 	// MARK: - Instance Variables
-	weak var core: OCCore?
+	public var clientContext : ClientContext?
 
 	private var initialItem: OCItem
 
@@ -45,63 +48,80 @@ class DisplayHostViewController: UIPageViewController {
 
 	private var playableItems: [OCItem]?
 
-	private var query: OCQuery
-	private var queryStarted : Bool = false
-	private var queryObservation : NSKeyValueObservation?
+	private var parentFolderQuery: OCQuery?
+
+	private var queryDatasource: OCDataSource?
+	private var queryDatasourceSubscription: OCDataSourceSubscription?
 
 	var progressSummarizer : ProgressSummarizer?
 
 	// MARK: - Init & deinit
-	init(core: OCCore, selectedItem: OCItem, query: OCQuery) {
-		self.core = core
-		self.initialItem = selectedItem
-		self.query = query
+	init(clientContext inClientContext: ClientContext? = nil, core: OCCore? = nil, selectedItem: OCItem, queryDataSource inQueryDataSource: OCDataSource? = nil) {
+		var clientContext = inClientContext
+
+		initialItem = selectedItem
+		queryDatasource = inQueryDataSource ?? clientContext?.queryDatasource
+
+		if queryDatasource == nil, let parentLocation = selectedItem.location?.parent, let core = clientContext?.core {
+			// If no data source was given, create one for the parent location
+			let query = OCQuery(for: parentLocation)
+			core.start(query)
+
+			parentFolderQuery = query
+			queryDatasource = parentFolderQuery?.queryResultsDataSource
+
+			clientContext = ClientContext(with: inClientContext)
+			clientContext?.queryDatasource = queryDatasource
+		}
 
 		super.init(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
 
-		if query.state == .stopped {
-			self.core?.start(query)
-			queryStarted = true
-		}
+		self.clientContext = ClientContext(with: clientContext, originatingViewController: self)
 
-		queryObservation = query.observe(\OCQuery.hasChangesAvailable, options: [.initial, .new]) { [weak self] (query, _) in
-			//guard self?.items == nil else { return }
+		if let queryDatasource {
+			queryDatasourceSubscription = queryDatasource.subscribe(updateHandler: { [weak self]  subscription in
+				guard let self = self, let queryDataSource = self.queryDatasource else {
+					return
+				}
 
-			query.requestChangeSet(withFlags: .onlyResults) { ( _, changeSet) in
-				guard let changeSet = changeSet  else { return }
-				if let queryResult = changeSet.queryResult, let newItems = self?.applyMediaFilesFilter(items: queryResult) {
-					let shallUpdateDatasource = self?.items?.count != newItems.count ? true : false
+				let snapshot = subscription.snapshotResettingChangeTracking(true)
+				var allItems : [OCItem] = []
 
-					self?.items = newItems
-
-					if shallUpdateDatasource {
-						self?.updateDatasource()
+				for itemRef in snapshot.items {
+					if let itemRecord = try? queryDataSource.record(forItemRef: itemRef) {
+						if let item = itemRecord.item as? OCItem {
+							allItems.append(item)
+						}
 					}
 				}
-			}
-		}
 
-		Theme.shared.register(client: self)
+				self.items = self.applyMediaFilesFilter(items: allItems)
+
+				self.updatePageViewControllerDatasource()
+			}, on: .main, trackDifferences: true, performInitialUpdate: true)
+		}
 	}
 
 	required init?(coder: NSCoder) {
 		fatalError("init(coder:) has not been implemented")
 	}
 
-	deinit {
+	private func windDown() {
 		NotificationCenter.default.removeObserver(self, name: MediaDisplayViewController.MediaPlaybackFinishedNotification, object: nil)
 		NotificationCenter.default.removeObserver(self, name: MediaDisplayViewController.MediaPlaybackNextTrackNotification, object: nil)
 		NotificationCenter.default.removeObserver(self, name: MediaDisplayViewController.MediaPlaybackPreviousTrackNotification, object: nil)
 
-		queryObservation?.invalidate()
-		queryObservation = nil
+		queryDatasourceSubscription?.terminate()
 
-		if queryStarted {
-			core?.stop(query)
-			queryStarted = false
+		if let parentFolderQuery {
+			clientContext?.core?.stop(parentFolderQuery)
 		}
 
 		Theme.shared.unregister(client: self)
+	}
+
+	deinit {
+		windDown()
 	}
 
 	// MARK: - ViewController lifecycle
@@ -128,10 +148,19 @@ class DisplayHostViewController: UIPageViewController {
 		NotificationCenter.default.addObserver(self, selector: #selector(handleMediaPlaybackFinished(notification:)), name: MediaDisplayViewController.MediaPlaybackFinishedNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(handlePlayNextMedia(notification:)), name: MediaDisplayViewController.MediaPlaybackNextTrackNotification, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(handlePlayPreviousMedia(notification:)), name: MediaDisplayViewController.MediaPlaybackPreviousTrackNotification, object: nil)
+
+		addKeyCommand(UIKeyCommand.ported(input: UIKeyCommand.inputLeftArrow, modifierFlags: .shift, action: #selector(keyCommandPreviousItem), discoverabilityTitle: OCLocalizedString("Previous item", nil)))
+		addKeyCommand(UIKeyCommand.ported(input: UIKeyCommand.inputRightArrow, modifierFlags: .shift, action: #selector(keyCommandNextItem), discoverabilityTitle: OCLocalizedString("Next item", nil)))
 	}
 
+	private var registered = false
 	override func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
+
+		if !registered {
+			registered = true
+			Theme.shared.register(client: self)
+		}
 
 		self.autoEnablePageScrolling()
 	}
@@ -150,13 +179,13 @@ class DisplayHostViewController: UIPageViewController {
 	}
 
 	// MARK: - Active Viewer
-	private var _navigationTitleObservation : NSKeyValueObservation?
+	private var _navigationItemObservation : NSKeyValueObservation?
 	private var _navigationBarButtonItemsObservation : NSKeyValueObservation?
 
 	weak var activeDisplayViewController : DisplayViewController? {
 		willSet {
-			_navigationTitleObservation?.invalidate()
-			_navigationTitleObservation = nil
+			_navigationItemObservation?.invalidate()
+			_navigationItemObservation = nil
 
 			_navigationBarButtonItemsObservation?.invalidate()
 			_navigationBarButtonItemsObservation = nil
@@ -165,8 +194,12 @@ class DisplayHostViewController: UIPageViewController {
 		didSet {
 			Log.debug("New activeDisplayViewController: \(activeDisplayViewController?.item?.name ?? "-")")
 
-			_navigationTitleObservation = activeDisplayViewController?.observe(\DisplayViewController.displayTitle, options: .initial, changeHandler: { [weak self] (displayViewController, _) in
-				self?.navigationItem.title = displayViewController.displayTitle
+			_navigationItemObservation = activeDisplayViewController?.observe(\DisplayViewController.item, options: .initial, changeHandler: { [weak self] (displayViewController, _) in
+				if let itemLocation = displayViewController.item?.location, let clientContext = displayViewController.clientContext {
+					OnMainThread(inline: true) {
+						self?.navigationItem.titleView = ClientLocationPopupButton(clientContext: clientContext, location: itemLocation)
+					}
+				}
 			})
 
 			_navigationBarButtonItemsObservation = activeDisplayViewController?.observe(\DisplayViewController.displayBarButtonItems, options: .initial, changeHandler: { [weak self] (displayViewController, _) in
@@ -176,7 +209,7 @@ class DisplayHostViewController: UIPageViewController {
 	}
 
 	// MARK: - Helper methods
-	private func updateDatasource() {
+	private func updatePageViewControllerDatasource() {
 		OnMainThread { [weak self] in
 			self?.dataSource = nil
 			if let itemCount = self?.items?.count {
@@ -248,7 +281,8 @@ class DisplayHostViewController: UIPageViewController {
 	private func createDisplayViewController(for mimeType: String) -> (DisplayViewController) {
 		let locationIdentifier = OCExtensionLocationIdentifier(rawValue: mimeType)
 		let location: OCExtensionLocation = OCExtensionLocation(ofType: .viewer, identifier: locationIdentifier)
-		let context = OCExtensionContext(location: location, requirements: nil, preferences: nil)
+		let context = DisplayExtensionContext(location: location, requirements: nil, preferences: nil)
+		context.clientContext = clientContext
 
 		var extensions: [OCExtensionMatch]?
 
@@ -282,7 +316,7 @@ class DisplayHostViewController: UIPageViewController {
 		let newViewController = createDisplayViewController(for: mimeType)
 
 		newViewController.progressSummarizer = progressSummarizer
-		newViewController.core = core
+		newViewController.core = clientContext?.core
 		newViewController.itemIndex = index
 
 		newViewController.item = item
@@ -329,6 +363,34 @@ class DisplayHostViewController: UIPageViewController {
 			return filteredItems
 		}
 	}
+
+	// MARK: - Manual navigation
+	func showPreviousItem(onlyMediaItems: Bool = false, animated: Bool = false) {
+		guard let activeDisplayViewController, let previousViewController = adjacentViewController(relativeTo: activeDisplayViewController, .before, includeOnlyMediaItems: onlyMediaItems) as? DisplayViewController else { return }
+
+		setViewControllers([previousViewController], direction: .reverse, animated: animated, completion: nil)
+		self.activeDisplayViewController = previousViewController
+	}
+
+	func showNextItem(onlyMediaItems: Bool = false, animated: Bool = false) {
+		guard let activeDisplayViewController, let nextViewController = adjacentViewController(relativeTo: activeDisplayViewController, .after, includeOnlyMediaItems: onlyMediaItems) as? DisplayViewController else { return }
+
+		setViewControllers([nextViewController], direction: .forward, animated: animated, completion: nil)
+		self.activeDisplayViewController = nextViewController
+	}
+
+	// MARK: - Keyboard support
+	@objc func keyCommandPreviousItem() {
+		showPreviousItem(animated: false)
+	}
+
+	@objc func keyCommandNextItem() {
+		showNextItem(animated: false)
+	}
+
+	override var canBecomeFirstResponder: Bool {
+		return true
+	}
 }
 
 extension DisplayHostViewController: UIPageViewControllerDataSource {
@@ -351,36 +413,26 @@ extension DisplayHostViewController: UIPageViewControllerDelegate {
 
 extension DisplayHostViewController: Themeable {
 	func applyThemeCollection(theme: Theme, collection: ThemeCollection, event: ThemeEvent) {
-		self.view.backgroundColor = collection.tableBackgroundColor
+		view.backgroundColor = collection.css.getColor(.fill, for: self.view)
 	}
 }
 
 extension DisplayHostViewController {
-
 	@objc private func handleMediaPlaybackFinished(notification:Notification) {
-		if let mediaController = activeDisplayViewController as? MediaDisplayViewController {
-			if let displayViewController = adjacentViewController(relativeTo: mediaController, .after, includeOnlyMediaItems: true) as? MediaDisplayViewController {
-				self.setViewControllers([displayViewController], direction: .forward, animated: false, completion: nil)
-				activeDisplayViewController = displayViewController
-			}
+		if activeDisplayViewController is MediaDisplayViewController {
+			showNextItem(onlyMediaItems: true, animated: false)
 		}
 	}
 
 	@objc private func handlePlayNextMedia(notification:Notification) {
-		if let mediaController = activeDisplayViewController as? MediaDisplayViewController {
-			if let displayViewController = adjacentViewController(relativeTo: mediaController, .after, includeOnlyMediaItems: true) as? MediaDisplayViewController {
-				self.setViewControllers([displayViewController], direction: .forward, animated: false, completion: nil)
-				activeDisplayViewController = displayViewController
-			}
+		if activeDisplayViewController is MediaDisplayViewController {
+			showNextItem(onlyMediaItems: true, animated: false)
 		}
 	}
 
 	@objc private func handlePlayPreviousMedia(notification:Notification) {
-		if let mediaController = activeDisplayViewController as? MediaDisplayViewController {
-			if let displayViewController = adjacentViewController(relativeTo: mediaController, .before, includeOnlyMediaItems: true) as? MediaDisplayViewController {
-				self.setViewControllers([displayViewController], direction: .forward, animated: false, completion: nil)
-				activeDisplayViewController = displayViewController
-			}
+		if activeDisplayViewController is MediaDisplayViewController {
+			showPreviousItem(onlyMediaItems: true, animated: false)
 		}
 	}
 }

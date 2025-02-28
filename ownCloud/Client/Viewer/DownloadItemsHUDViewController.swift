@@ -31,7 +31,7 @@ class DownloadItemsHUDViewController: CardViewController {
 
 	var messageLabel : UILabel
 	var cancelButton : UIButton
-	var progressView : UIProgressView
+	var progressView : ThemeCSSProgressView
 	var progressSummarizer : ProgressSummarizer
 	weak var core : OCCore?
 
@@ -41,8 +41,8 @@ class DownloadItemsHUDViewController: CardViewController {
 		self.completion = completion
 
 		messageLabel = UILabel()
-		progressView = UIProgressView(progressViewStyle: .bar)
-		cancelButton = ThemeButton()
+		progressView = ThemeCSSProgressView(progressViewStyle: .bar)
+		cancelButton = ThemeButton(withSelectors: [.cancel])
 		progressSummarizer = ProgressSummarizer()
 
 		super.init(nibName: nil, bundle: nil)
@@ -64,10 +64,10 @@ class DownloadItemsHUDViewController: CardViewController {
 
 		super.loadView()
 
-		cancelButton.setTitle("Cancel".localized, for: .normal)
+		cancelButton.setTitle(OCLocalizedString("Cancel", nil), for: .normal)
 		cancelButton.addTarget(self, action: #selector(self.cancel), for: .touchUpInside)
 
-		messageLabel.text = "Preparing…".localized // Needed so the messageLabel doesn't have a zero height after initial layout
+		messageLabel.text = OCLocalizedString("Preparing…", nil) // Needed so the messageLabel doesn't have a zero height after initial layout
 		messageLabel.sizeToFit()
 
 		messageLabel.setContentHuggingPriority(.required, for: .vertical)
@@ -137,7 +137,7 @@ class DownloadItemsHUDViewController: CardViewController {
 			if items.count > 0 {
 				progressSummarizer.addObserver(self, notificationBlock: { [weak self] (_, summary) in
 					if let progressView = self?.progressView {
-						self?.messageLabel.text = summary.message ?? "Preparing…".localized
+						self?.messageLabel.text = summary.message ?? OCLocalizedString("Preparing…", nil)
 						summary.update(progressView: progressView)
 					}
 				})
@@ -207,9 +207,7 @@ class DownloadItemsHUDViewController: CardViewController {
 
 	// MARK: - Themeable
 	override func applyThemeCollection(theme: Theme, collection: ThemeCollection, event: ThemeEvent) {
-		progressView.applyThemeCollection(collection)
 		messageLabel.applyThemeCollection(collection)
-		cancelButton.applyThemeCollection(collection)
 
 		super.applyThemeCollection(theme: theme, collection: collection, event: event)
 	}

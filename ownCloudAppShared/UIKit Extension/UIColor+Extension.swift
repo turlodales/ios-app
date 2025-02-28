@@ -28,6 +28,11 @@ extension UIColor {
 		self.init(red: CGFloat(red) / 255.0, green: CGFloat(green) / 255.0, blue: CGFloat(blue) / 255.0, alpha: CGFloat(alpha))
 	}
 
+	public convenience init(hexa unsignedRGBAHex: UInt) {
+		let rgbaHex = Int(unsignedRGBAHex)
+		self.init(red: (rgbaHex >> 24) & 0xFF, green: (rgbaHex >> 16) & 0xFF, blue: (rgbaHex >> 8) & 0xFF, alpha: Float(rgbaHex & 0xFF) / 255.0)
+	}
+
 	public convenience init(hex unsignedRGBHex: UInt, alpha: Float = 1.0) {
 		let rgbHex = Int(unsignedRGBHex)
 		self.init(red: (rgbHex >> 16) & 0xFF, green: (rgbHex >> 8) & 0xFF, blue: (rgbHex & 0xFF), alpha: alpha)
@@ -99,5 +104,45 @@ extension UIColor {
 		self.getRed(&selfRed, green:&selfGreen, blue:&selfBlue, alpha:&selfAlpha)
 
 		return (String(format: "\(leadIn)%02x%02x%02x", Int(selfRed*255.0), Int(selfGreen*255.0), Int(selfBlue*255.0)))
+	}
+
+	public var brightness: CGFloat? {
+		guard let components = cgColor.components, components.count > 2 else { return nil }
+		return ((components[0] * 299) + (components[1] * 587) + (components[2] * 114)) / 1000
+	}
+
+	public func isLight() -> Bool {
+		if let brightness, brightness > 0.5 {
+			return true
+		}
+		return false
+	}
+
+	public func contrast(to otherColor: UIColor) -> CGFloat? {
+		if let brightness, let otherBrightness = otherColor.brightness {
+			if brightness > otherBrightness {
+				return (brightness + 0.05) / (otherBrightness + 0.05)
+			} else {
+				return (otherBrightness + 0.05) / (brightness + 0.05)
+			}
+		}
+
+		return nil
+	}
+
+	public func preferredContrastColor(from colors: [UIColor]) -> UIColor? {
+		var highestContrastColor: UIColor?
+		var highestContrast: CGFloat = 0
+
+		for color in colors {
+			if let contrast = contrast(to: color) {
+				if (contrast > highestContrast) || (highestContrastColor == nil) {
+					highestContrastColor = color
+					highestContrast = contrast
+				}
+			}
+		}
+
+		return highestContrastColor
 	}
 }

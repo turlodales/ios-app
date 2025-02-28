@@ -1,14 +1,18 @@
 #!/bin/bash
 
-# Update/Install CocoaPods
-pod install
-
 # Run test to update CONFIGURATION.json
 xcodebuild test \
--workspace ../../ownCloud.xcworkspace \
+-project ../../ownCloud.xcodeproj \
 -scheme ownCloud \
--destination 'platform=iOS Simulator,name=iPhone 8,OS=latest' \
+-destination 'platform=iOS Simulator,name=iPhone 14,OS=latest' \
 -only-testing ownCloudTests/MetadataDocumentationTests/testUpdateConfigurationJSONFromMetadata
 
+# Make temporary copy
+cp ../../doc/CONFIGURATION.json .
+
 # Run gomplate to generate the adoc
-gomplate -f templates/ios_mdm_tables.adoc.tmpl --context config=../../doc/CONFIGURATION.json -o ../../docs/modules/ROOT/pages/ios_mdm_tables.adoc
+gomplate -f templates/configuration.adoc.tmpl --context config=CONFIGURATION.json -o configuration.adoc
+
+# Copy result back and remove temporary copy
+rm CONFIGURATION.json
+cp configuration.adoc ../../doc/

@@ -20,18 +20,17 @@ import UIKit
 import ownCloudSDK
 import ownCloudAppShared
 import CoreServices
+import UniformTypeIdentifiers
 
 class UploadFileAction: UploadBaseAction {
 	override class var identifier : OCExtensionIdentifier? { return OCExtensionIdentifier("com.owncloud.action.uploadfile") }
 	override class var category : ActionCategory? { return .normal }
-	override class var name : String { return "Upload file".localized }
-	override class var locations : [OCExtensionLocationIdentifier]? { return [.folderAction, .keyboardShortcut] }
+	override class var name : String { return OCLocalizedString("Upload file", nil) }
+	override class var locations : [OCExtensionLocationIdentifier]? { return [.folderAction, .keyboardShortcut, .emptyFolder] }
 	override class var keyCommand : String? { return "+" }
 	override class var keyModifierFlags: UIKeyModifierFlags? { return [.command] }
 
-	private struct AssociatedKeys {
-		static var actionKey = "action"
-	}
+	private static let associatedKeyAction = malloc(1)!
 
 	// MARK: - Action implementation
 	override func run() {
@@ -40,24 +39,20 @@ class UploadFileAction: UploadBaseAction {
 			return
 		}
 
-		let documentPickerViewController = UIDocumentPickerViewController(documentTypes: [kUTTypeData as String], in: .import)
+		let documentPickerViewController = UIDocumentPickerViewController(documentTypes: [UTType.data.identifier], in: .import)
 
 		documentPickerViewController.delegate = self
 		documentPickerViewController.allowsMultipleSelection = true
 
 		// The action is only held weakly as delegate. This makes sure the Action object sticks around as long as UIDocumentPickerViewController, so that UIDocumentPickerViewController can call the UIDocumentPickerDelegate method.
-		objc_setAssociatedObject(documentPickerViewController, &AssociatedKeys.actionKey, self, .OBJC_ASSOCIATION_RETAIN)
+		objc_setAssociatedObject(documentPickerViewController, UploadFileAction.associatedKeyAction, self, .OBJC_ASSOCIATION_RETAIN)
 
 		viewController.present(documentPickerViewController, animated: true)
 	}
 
 	override class func iconForLocation(_ location: OCExtensionLocationIdentifier) -> UIImage? {
-		if location == .folderAction {
-			Theme.shared.add(tvgResourceFor: "text")
-			return Theme.shared.image(for: "text", size: CGSize(width: 30.0, height: 30.0))!.withRenderingMode(.alwaysTemplate)
-		}
-
-		return nil
+		Theme.shared.add(tvgResourceFor: "text")
+		return Theme.shared.image(for: "text", size: CGSize(width: 30.0, height: 30.0))!.withRenderingMode(.alwaysTemplate)
 	}
 }
 

@@ -17,6 +17,8 @@
  */
 
 #import "AppLockSettings.h"
+#import "Branding.h"
+#import <LocalAuthentication/LocalAuthentication.h>
 
 @implementation AppLockSettings
 
@@ -52,9 +54,22 @@
 {
 	return (@{
 		OCClassSettingsKeyPasscodeEnforced : @(NO),
+		OCClassSettingsKeyPasscodeEnforcedByDevice : @(NO),
 		OCClassSettingsKeyRequiredPasscodeDigits : @(4),
 		OCClassSettingsKeyMaximumPasscodeDigits : @(6),
-		OCClassSettingsKeyPasscodeUseBiometricalUnlock : @(NO)
+		OCClassSettingsKeyPasscodeUseBiometricalUnlock : @(NO),
+		OCClassSettingsKeyPasscodeShareSheetBiometricalUnlockByApp : @{
+			@"default" : @{
+				@"allow" : @(YES)
+			},
+
+			// For unknown reasons invoking biometric authentication from the
+			// share sheet in Boxer leads to dismissal of the entire share sheet,
+			// so (as of July 2022) we hardcode it as an exception here
+			@"com.air-watch.boxer" : @{
+				@"allow" : @(NO)
+			}
+		}
 	});
 }
 
@@ -67,7 +82,14 @@
 			OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced,
 			OCClassSettingsMetadataKeyCategory	: @"Passcode"
 		},
-
+		
+		OCClassSettingsKeyPasscodeEnforcedByDevice : @{
+			OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeBoolean,
+			OCClassSettingsMetadataKeyDescription 	: @"Controls wether the user MUST establish a passcode upon app installation, if NO device passcode protection is set.",
+			OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced,
+			OCClassSettingsMetadataKeyCategory	: @"Passcode"
+		},
+		
 		OCClassSettingsKeyRequiredPasscodeDigits : @{
 			OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeInteger,
 			OCClassSettingsMetadataKeyDescription 	: @"Controls how many passcode digits are at least required for passcode lock.",
@@ -89,9 +111,16 @@
 			OCClassSettingsMetadataKeyCategory	: @"Passcode"
 		},
 
-		OCClassSettingsKeyPasscodeUseBiometricalUnlock : @{
-			OCClassSettingsMetadataKeyType 		: OCClassSettingsMetadataTypeBoolean,
-			OCClassSettingsMetadataKeyDescription 	: @"Controls wether the biometrical unlock will be enabled automatically.",
+		OCClassSettingsKeyPasscodeUseBiometricalUnlock	: @{
+			OCClassSettingsMetadataKeyType		: OCClassSettingsMetadataTypeBoolean,
+			OCClassSettingsMetadataKeyDescription	: @"Controls wether the biometrical unlock will be enabled automatically.",
+			OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced,
+			OCClassSettingsMetadataKeyCategory	: @"Passcode"
+		},
+
+		OCClassSettingsKeyPasscodeShareSheetBiometricalUnlockByApp : @{
+			OCClassSettingsMetadataKeyType		: OCClassSettingsMetadataTypeDictionary,
+			OCClassSettingsMetadataKeyDescription	: @"Controls the  biometrical unlock availability in the share sheet, with per-app level control.",
 			OCClassSettingsMetadataKeyStatus	: OCClassSettingsKeyStatusAdvanced,
 			OCClassSettingsMetadataKeyCategory	: @"Passcode"
 		}
@@ -128,14 +157,28 @@
 
 - (BOOL)biometricalSecurityEnabled
 {
-	NSNumber *useBiometricalUnlock;
+	NSNumber *useBiometricalUnlockNumber;
+	BOOL useBiometricalUnlock = NO;
 
-	if ((useBiometricalUnlock = [_userDefaults objectForKey:@"security-settings-use-biometrical"]) != nil)
+	if ((useBiometricalUnlockNumber = [_userDefaults objectForKey:@"security-settings-use-biometrical"]) != nil)
 	{
-		return (useBiometricalUnlock.boolValue);
+		useBiometricalUnlock = useBiometricalUnlockNumber.boolValue;
+	}
+	else
+	{
+		useBiometricalUnlock = [[self classSettingForOCClassSettingsKey:OCClassSettingsKeyPasscodeUseBiometricalUnlock] boolValue];
 	}
 
-	return ([[self classSettingForOCClassSettingsKey:OCClassSettingsKeyPasscodeUseBiometricalUnlock] boolValue]);
+	if (useBiometricalUnlock)
+	{
+		// Apple share extension specific settings
+		if ([OCAppIdentity.sharedAppIdentity.componentIdentifier isEqual:OCAppComponentIdentifierShareExtension])
+		{
+			return ([self biometricalSecurityEnabledinShareSheet]);
+		}
+	}
+
+	return (useBiometricalUnlock);
 }
 
 - (void)setBiometricalSecurityEnabled:(BOOL)biometricalSecurityEnabled
@@ -143,11 +186,113 @@
 	[_userDefaults setBool:biometricalSecurityEnabled forKey:@"security-settings-use-biometrical"];
 }
 
+- (NSDictionary<NSString*,id> *)_shareSheetBiometricalAttributesForApp:(NSString *)hostAppID
+{
+	NSDictionary<NSString*,NSDictionary *> *shareSheetBiometricalUnlockByApp = [self classSettingForOCClassSettingsKey:OCClassSettingsKeyPasscodeShareSheetBiometricalUnlockByApp];
+	NSDictionary<NSString*,id> *attributesForApp = nil;
+
+	if ([shareSheetBiometricalUnlockByApp isKindOfClass:NSDictionary.class])
+	{
+		if (shareSheetBiometricalUnlockByApp[hostAppID] != nil)
+		{
+			attributesForApp = OCTypedCast(shareSheetBiometricalUnlockByApp[hostAppID], NSDictionary);
+		}
+		else
+		{
+			attributesForApp = OCTypedCast(shareSheetBiometricalUnlockByApp[@"default"], NSDictionary);
+		}
+	}
+
+	return (attributesForApp);
+}
+
+- (NSDictionary<NSString*,id> *)_shareSheetBiometricalAttributes
+{
+	NSString *hostAppID;
+
+	if ((hostAppID = OCAppIdentity.sharedAppIdentity.hostAppBundleIdentifier) == nil)
+	{
+		hostAppID = @"default";
+	}
+
+	return ([self _shareSheetBiometricalAttributesForApp:hostAppID]);
+}
+
+- (BOOL)biometricalSecurityEnabledinShareSheet
+{
+	NSNumber *useBiometricalUnlock;
+
+	if ((useBiometricalUnlock = [_userDefaults objectForKey:@"security-settings-use-biometrical-share-sheet"]) != nil)
+	{
+		return (useBiometricalUnlock.boolValue);
+	}
+
+	NSDictionary<NSString*,id> *shareSheetAttributesForApp = nil;
+
+	if ((shareSheetAttributesForApp = [self _shareSheetBiometricalAttributes]) != nil)
+	{
+		NSNumber *enabled;
+
+		if ((enabled = OCTypedCast(shareSheetAttributesForApp[@"allow"], NSNumber)) != nil)
+		{
+			return (enabled.boolValue);
+		}
+	}
+
+	return (YES);
+}
+
+- (void)setBiometricalSecurityEnabledinShareSheet:(BOOL)biometricalSecurityEnabledinShareSheet
+{
+	[_userDefaults setBool:biometricalSecurityEnabledinShareSheet forKey:@"security-settings-use-biometrical-share-sheet"];
+}
+
+- (NSURL *)biometricalAuthenticationRedirectionTargetURL
+{
+	if ([OCAppIdentity.sharedAppIdentity.componentIdentifier isEqual:OCAppComponentIdentifierShareExtension])
+	{
+		// Only in share extension
+		NSDictionary<NSString*,id> *shareSheetAttributesForApp = nil;
+
+		if ((shareSheetAttributesForApp = [self _shareSheetBiometricalAttributes]) != nil)
+		{
+			NSString *trampolineURLString;
+
+			// For apps with a trampoline URL, determine the target URL to initiate the authentication trampoline
+			if ((trampolineURLString = shareSheetAttributesForApp[@"trampoline-url"]) != nil)
+			{
+				NSString *toAppURLScheme;
+
+				if ((toAppURLScheme = [Branding.sharedBranding appURLSchemesForBundleURLName:nil].firstObject) != nil)
+				{
+					NSString *targetURLString = [NSString stringWithFormat:@"%@://?authenticateForApp=%@", toAppURLScheme, OCAppIdentity.sharedAppIdentity.hostAppBundleIdentifier];
+
+					return ([NSURL URLWithString:targetURLString]);
+				}
+			}
+		}
+	}
+
+	return (nil);
+}
+
+// Counterpart to .biometricalAuthenticationRedirectionTargetURL for use in the app (not implemented)
+//- (NSURL *)biometricalAuthenticationReturnURL
+//{
+//	return (nil);
+//}
+
 - (BOOL)isPasscodeEnforced
 {
 	NSNumber *isPasscodeEnforced = [self classSettingForOCClassSettingsKey:OCClassSettingsKeyPasscodeEnforced];
-
-	if (isPasscodeEnforced != nil) {
+	NSNumber *isPasscodeEnforcedByDevice = [self classSettingForOCClassSettingsKey:OCClassSettingsKeyPasscodeEnforcedByDevice];
+	
+	LAContext *context = [[LAContext alloc] init];
+	NSError *error = nil;
+	
+	if (isPasscodeEnforcedByDevice != nil && isPasscodeEnforcedByDevice.boolValue == YES && [context canEvaluatePolicy:LAPolicyDeviceOwnerAuthentication error:&error] == NO) {
+		return (YES);
+	} else if (isPasscodeEnforced != nil) {
 		return (isPasscodeEnforced.boolValue);
 	}
 
@@ -186,7 +331,9 @@
 OCClassSettingsIdentifier OCClassSettingsIdentifierPasscode = @"passcode";
 
 OCClassSettingsKey OCClassSettingsKeyPasscodeEnforced = @"enforced";
+OCClassSettingsKey OCClassSettingsKeyPasscodeEnforcedByDevice = @"enforced-by-device";
 OCClassSettingsKey OCClassSettingsKeyRequiredPasscodeDigits = @"requiredPasscodeDigits";
 OCClassSettingsKey OCClassSettingsKeyMaximumPasscodeDigits = @"maximumPasscodeDigits";
 OCClassSettingsKey OCClassSettingsKeyPasscodeLockDelay = @"lockDelay";
 OCClassSettingsKey OCClassSettingsKeyPasscodeUseBiometricalUnlock = @"use-biometrical-unlock";
+OCClassSettingsKey OCClassSettingsKeyPasscodeShareSheetBiometricalUnlockByApp = @"share-sheet-biometrical-unlock-by-app";

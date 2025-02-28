@@ -22,8 +22,8 @@ import ownCloudAppShared
 class DisplayExifMetadataAction : Action {
 	override class var identifier : OCExtensionIdentifier? { return OCExtensionIdentifier("com.owncloud.action.show-exif") }
 	override class var category : ActionCategory? { return .normal }
-	override class var name : String? { return "Image metadata".localized }
-	override class var locations : [OCExtensionLocationIdentifier]? { return [.moreItem, .moreDetailItem, .moreFolder, .contextMenuItem] }
+	override class var name : String? { return OCLocalizedString("Image metadata", nil) }
+	override class var locations : [OCExtensionLocationIdentifier]? { return [.moreItem, .moreDetailItem, .moreFolder, .contextMenuItem, .accessibilityCustomAction] }
 	class var supportedMimeTypes : [String] { return ["image"] }
 	class var excludedMimeTypes : [String] { return ["image/gif", "image/svg"] }
 
@@ -55,10 +55,7 @@ class DisplayExifMetadataAction : Action {
 	}
 
 	override class func iconForLocation(_ location: OCExtensionLocationIdentifier) -> UIImage? {
-		if location == .moreItem || location == .moreDetailItem || location == .moreFolder || location == .contextMenuItem {
-			return UIImage(named: "camera-info")?.withRenderingMode(.alwaysTemplate)
-		}
-		return nil
+		return UIImage(named: "camera-info")?.withRenderingMode(.alwaysTemplate)
 	}
 
 	// MARK: - Action implementation
@@ -79,7 +76,7 @@ class DisplayExifMetadataAction : Action {
 				}
 
 				let appName = VendorServices.shared.appName
-				let alertController = ThemedAlertController(with: "Cannot connect to ".localized + appName, message: appName + " couldn't download file(s)".localized, okLabel: "OK".localized, action: nil)
+				let alertController = ThemedAlertController(with: OCLocalizedString("Cannot connect to ", nil) + appName, message: appName + OCLocalizedString(" couldn't download file(s)", nil), okLabel: OCLocalizedString("OK", nil), action: nil)
 
 				hostViewController?.present(alertController, animated: true)
 			} else {
@@ -88,10 +85,7 @@ class DisplayExifMetadataAction : Action {
 				if let item = self.context.items.first, let sourceURL = files.first?.url {
 					let metadataViewController = ImageMetadataViewController(core: core, item: item, url: sourceURL)
 					let navigationController = ThemeNavigationController(rootViewController: metadataViewController)
-					navigationController.modalPresentationStyle = .formSheet
-					if #available(iOS 13, *) {
-						navigationController.modalPresentationStyle = .automatic
-					}
+					navigationController.modalPresentationStyle = .automatic
 					viewController.present(navigationController, animated: true)
 				}
 			}

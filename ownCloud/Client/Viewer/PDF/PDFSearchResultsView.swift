@@ -18,6 +18,7 @@
 
 import UIKit
 import PDFKit
+import ownCloudSDK
 
 typealias PDFSearchResultsViewCloseHandler = () -> Void
 typealias PDFSearchResultsViewUpdateHandler = (PDFSelection) -> Void
@@ -40,9 +41,9 @@ class PDFSearchResultsView : UIView {
 	var currentMatch: PDFSelection? {
 		didSet {
 			if let match = currentMatch, let matches = self.matches {
-				if let index = matches.index(of: match), let matchString = match.string {
+				if let index = matches.firstIndex(of: match), let matchString = match.string {
 					currentIndex = index
-					let searchResultsText = "\(matchString) (" + String(format: "%@ of %@".localized, "\(index + 1)", "\(matches.count)") + ")"
+					let searchResultsText = "\(matchString) (" + String(format: OCLocalizedString("%@ of %@", nil), "\(index + 1)", "\(matches.count)") + ")"
 					searchTermButton.setTitle(searchResultsText, for: .normal)
 					backButton.isEnabled = currentIndex == 0 ? false : true
 					forwardButton.isEnabled = currentIndex == matches.count - 1 ? false : true
@@ -88,15 +89,9 @@ class PDFSearchResultsView : UIView {
 		backButton.addTarget(self, action: #selector(back), for: .touchUpInside)
 		forwardButton.addTarget(self, action: #selector(forward), for: .touchUpInside)
 
-		if #available(iOS 13, *) {
-			closeButtton.setImage(UIImage(systemName: "xmark")?.tinted(with: .white), for: .normal)
-			backButton.setImage(UIImage(systemName: "chevron.left")?.tinted(with: .white), for: .normal)
-			forwardButton.setImage(UIImage(systemName: "chevron.right")?.tinted(with: .white), for: .normal)
-		} else {
-			closeButtton.setImage(UIImage(named: "xmark")?.tinted(with: .white), for: .normal)
-			backButton.setImage(UIImage(named: "chevron.left")?.tinted(with: .white), for: .normal)
-			forwardButton.setImage(UIImage(named: "chevron.right")?.tinted(with: .white), for: .normal)
-		}
+		closeButtton.setImage(UIImage(systemName: "xmark")?.tinted(with: .white), for: .normal)
+		backButton.setImage(UIImage(systemName: "chevron.left")?.tinted(with: .white), for: .normal)
+		forwardButton.setImage(UIImage(systemName: "chevron.right")?.tinted(with: .white), for: .normal)
 
 		searchTermButton.titleLabel?.textColor = .white
 		searchTermButton.titleLabel?.font = UIFont.preferredFont(forTextStyle: .footnote)

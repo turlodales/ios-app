@@ -1,12 +1,16 @@
 # [ownCloud](https://owncloud.org) iOS App
 
-## 📱 The new iOS App for your ownCloud!
+## 📲 Download
+
+Our iOS app is free for downloading available on the AppStore
+
+<a href="https://apps.apple.com/app/id1359583808?itsct=apps_box_badge&amp;itscg=30200" style="display: inline-block; overflow: hidden; border-radius: 13px; width: 250px; height: 83px;"><img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83&amp;releaseDate=1561593600" alt="Download on the App Store" style="border-radius: 13px; width: 250px; height: 83px;"></a>
 
 ####  🌎 https://ownCloud.com
 
 | Account List                                                 | File List                                                    | File Actions                                                 | Preview Files                                                | Quick Access                                                 | Settings                                                     |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| <img src="fastlane/screenshots/en-US/iPhone 11 Pro Max-11_ios_accounts_list_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="fastlane/screenshots/en-US/iPhone 11 Pro Max-20_ios_files_list_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="fastlane/screenshots/en-US/iPhone 11 Pro Max-21_ios_files_actions_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="fastlane/screenshots/en-US/iPhone 11 Pro Max-22_ios_files_preview_pdf_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="fastlane/screenshots/en-US/iPhone 11 Pro Max-40_ios_quick_access_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="fastlane/screenshots/en-US/iPhone 11 Pro Max-60_ios_settings_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> |
+| <img src="doc/images/en-US/iPhone 11 Pro Max-11_ios_accounts_list_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="doc/images/en-US/iPhone 11 Pro Max-20_ios_files_list_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="doc/images/en-US/iPhone 11 Pro Max-21_ios_files_actions_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="doc/images/en-US/iPhone 11 Pro Max-22_ios_files_preview_pdf_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="doc/images/en-US/iPhone 11 Pro Max-40_ios_quick_access_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> | <img src="doc/images/en-US/iPhone 11 Pro Max-60_ios_settings_demo.png" alt="Simulator Screen Shot - iPhone 11 Pro"> |
 
 ## 😍 Features
 
@@ -22,12 +26,6 @@
 * 🇪🇺 Localised in many languages
 * 📱iOS 11+
 * 🧩 License: [GPLv3](https://github.com/owncloud/ios-app/LICENSE)
-
-## 📲 Download
-
-Our iOS app is free for downloading available on the AppStore
-
-[![](https://owncloud.org/wp-content/themes/owncloudorgnew/assets/img/clients/buttons/appstore.png)](https://apps.apple.com/app/id1359583808)
 
 ## 🛠 Build our App
 

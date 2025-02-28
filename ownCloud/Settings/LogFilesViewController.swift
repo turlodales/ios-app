@@ -18,6 +18,7 @@
 
 import UIKit
 import CoreServices
+import UniformTypeIdentifiers
 
 import ownCloudSDK
 import ownCloudApp
@@ -37,7 +38,7 @@ class LogFileTableViewCell : ThemeTableViewCell {
 		shareButton.setImage(image, for: .normal)
 		shareButton.addTarget(self, action: #selector(shareButtonTapped), for: .touchUpInside)
 		shareButton.frame = CGRect(origin: CGPoint(x:0.0, y:0.0), size: image!.size)
-		shareButton.accessibilityLabel = "Share".localized
+		shareButton.accessibilityLabel = OCLocalizedString("Share", nil)
 		self.accessoryView = shareButton
 	}
 
@@ -92,14 +93,14 @@ class LogFilesViewController : UITableViewController, UITableViewDragDelegate, T
 		self.tableView.register(LogFileTableViewCell.self, forCellReuseIdentifier: LogFileTableViewCell.identifier)
 		self.tableView.dragDelegate = self
 		self.tableView.dragInteractionEnabled = true
-		self.title = "Log Files".localized
+		self.title = OCLocalizedString("Log Files", nil)
 	}
 
 	override func viewWillAppear(_ animated: Bool) {
 		super.viewWillAppear(animated)
 		self.populateLogFileList()
 
-		let removeAllButtonItem = UIBarButtonItem(title: "Delete all".localized, style: .done, target: self, action: #selector(removeAllLogs))
+		let removeAllButtonItem = UIBarButtonItem(title: OCLocalizedString("Delete all", nil), style: .done, target: self, action: #selector(removeAllLogs))
 		let flexibleSpaceButtonItem = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
 
 		self.toolbarItems = [flexibleSpaceButtonItem, removeAllButtonItem, flexibleSpaceButtonItem]
@@ -161,13 +162,13 @@ class LogFilesViewController : UITableViewController, UITableViewDragDelegate, T
 		}
 	}
 
-	override func tableView(_ tableView: UITableView, editActionsForRowAt indexPath: IndexPath) -> [UITableViewRowAction]? {
-
-		return [
-			UITableViewRowAction(style: .destructive, title: "Delete".localized, handler: { [weak self] (_, indexPath) in
+	override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+		return UISwipeActionsConfiguration(actions: [
+			UIContextualAction(style: .destructive, title: OCLocalizedString("Delete", nil), handler: { [weak self] (_, _, completionHandler) in
 				self?.removeLogRecord(at: indexPath)
+				completionHandler(true)
 			})
-		]
+		])
 	}
 
 	// MARK: - Table view drag & drop support
@@ -189,7 +190,7 @@ class LogFilesViewController : UITableViewController, UITableViewDragDelegate, T
 
 		if let logURL = logURL {
 			let itemProvider = NSItemProvider()
-			itemProvider.registerFileRepresentation(forTypeIdentifier: kUTTypeUTF8PlainText as String, fileOptions: [], visibility: .all, loadHandler: { (completionHandler) -> Progress? in
+			itemProvider.registerFileRepresentation(forTypeIdentifier: UTType.utf8PlainText.identifier, fileOptions: [], visibility: .all, loadHandler: { (completionHandler) -> Progress? in
 				completionHandler(logURL, true, nil)
 				return nil
 			})
@@ -291,9 +292,9 @@ class LogFilesViewController : UITableViewController, UITableViewDragDelegate, T
 	}
 
 	@objc private func removeAllLogs() {
-		let alert = ThemedAlertController(with: "Delete all log files?".localized,
-									  message: "This action can't be undone.".localized,
-									  destructiveLabel: "Delete all".localized,
+		let alert = ThemedAlertController(with: OCLocalizedString("Delete all log files?", nil),
+									  message: OCLocalizedString("This action can't be undone.", nil),
+									  destructiveLabel: OCLocalizedString("Delete all", nil),
 									  preferredStyle: .alert,
 									  destructiveAction: {
 			OCLogger.shared.pauseWriters(intermittentBlock: {

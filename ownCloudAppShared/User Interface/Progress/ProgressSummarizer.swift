@@ -138,7 +138,7 @@ public class ProgressSummarizer: NSObject {
 		OCSynchronized(self) {
 			Log.debug("Stop tracking progress \(String(describing: progress)) (remove=\(remove))")
 
-			if let trackedProgressIndex = trackedProgress.index(of: progress) {
+			if let trackedProgressIndex = trackedProgress.firstIndex(of: progress) {
 				progress.removeObserver(self, forKeyPath: "fractionCompleted", context: observerContext)
 				progress.removeObserver(self, forKeyPath: "isFinished", context: observerContext)
 				progress.removeObserver(self, forKeyPath: "isCancelled", context: observerContext)
@@ -149,7 +149,7 @@ public class ProgressSummarizer: NSObject {
 					trackedProgress.remove(at: trackedProgressIndex)
 
 					if progress.eventType != .none {
-						if let progressByTypeIndex = trackedProgressByType[progress.eventType]?.index(of: progress) {
+						if let progressByTypeIndex = trackedProgressByType[progress.eventType]?.firstIndex(of: progress) {
 							trackedProgressByType[progress.eventType]?.remove(at: progressByTypeIndex)
 
 							let remainingProgressByType = (trackedProgressByType[progress.eventType]?.count ?? 0)
@@ -272,7 +272,7 @@ public class ProgressSummarizer: NSObject {
 		OCSynchronized(self) {
 			Log.debug("Pop fallback summary \(String(describing: summary))")
 
-			if let index = fallbackSummaries.index(of: summary) {
+			if let index = fallbackSummaries.firstIndex(of: summary) {
 				fallbackSummaries.remove(at: index)
 
 				if index == 0 {
@@ -318,7 +318,7 @@ public class ProgressSummarizer: NSObject {
 		OCSynchronized(self) {
 			Log.debug("Pop priority summary \(String(describing: summary))")
 
-			if let index = prioritySummaries.index(of: summary) {
+			if let index = prioritySummaries.firstIndex(of: summary) {
 				prioritySummaries.remove(at: index)
 
 				if prioritySummaries.count == 0 {
@@ -327,6 +327,15 @@ public class ProgressSummarizer: NSObject {
 					self.prioritySummary = prioritySummaries.last
 				}
 			}
+		}
+	}
+
+	public func resetPrioritySummaries() {
+		OCSynchronized(self) {
+			Log.debug("Reset priority summaries")
+
+			prioritySummaries.removeAll()
+			self.prioritySummary = nil
 		}
 	}
 
@@ -340,7 +349,7 @@ public class ProgressSummarizer: NSObject {
 
 	public func removeObserver(_ observer: AnyObject) {
 		OCSynchronized(self) {
-			if let removeIndex : Int = observers.index(where: { (observerRecord) -> Bool in
+			if let removeIndex : Int = observers.firstIndex(where: { (observerRecord) -> Bool in
 				return observerRecord.observer === observer
 			}) {
 				observers.remove(at: removeIndex)
@@ -394,28 +403,28 @@ public class ProgressSummarizer: NSObject {
 								if sameTypeCount > 1 {
 									switch progress.eventType {
 										case .createFolder:
-											multiMessage = NSString(format:"Creating %ld folders…".localized as NSString, sameTypeCount) as String
+											multiMessage = NSString(format:OCLocalizedString("Creating %ld folders…", nil) as NSString, sameTypeCount) as String
 
 										case .move:
-											multiMessage = NSString(format:"Moving %ld items…".localized as NSString, sameTypeCount) as String
+											multiMessage = NSString(format:OCLocalizedString("Moving %ld items…", nil) as NSString, sameTypeCount) as String
 
 										case .copy:
-											multiMessage = NSString(format:"Copying %ld items…".localized as NSString, sameTypeCount) as String
+											multiMessage = NSString(format:OCLocalizedString("Copying %ld items…", nil) as NSString, sameTypeCount) as String
 
 										case .delete:
-											multiMessage = NSString(format:"Deleting %ld items…".localized as NSString, sameTypeCount) as String
+											multiMessage = NSString(format:OCLocalizedString("Deleting %ld items…", nil) as NSString, sameTypeCount) as String
 
 										case .upload:
-											multiMessage = NSString(format:"Uploading %ld files…".localized as NSString, sameTypeCount) as String
+											multiMessage = NSString(format:OCLocalizedString("Uploading %ld files…", nil) as NSString, sameTypeCount) as String
 
 										case .download:
-											multiMessage = NSString(format:"Downloading %ld files…".localized as NSString, sameTypeCount) as String
+											multiMessage = NSString(format:OCLocalizedString("Downloading %ld files…", nil) as NSString, sameTypeCount) as String
 
 										case .update:
-											multiMessage = NSString(format:"Updating %ld items…".localized as NSString, sameTypeCount) as String
+											multiMessage = NSString(format:OCLocalizedString("Updating %ld items…", nil) as NSString, sameTypeCount) as String
 
 										case .createShare, .updateShare, .deleteShare, .decideOnShare: break
-										case .none, .retrieveThumbnail, .retrieveItemList, .retrieveShares, .issueResponse, .filterFiles, .wakeupSyncRecord: break
+										case .none, .retrieveThumbnail, .retrieveItemList, .retrieveShares, .issueResponse, .filterFiles, .search, .wakeupSyncRecord: break
 									}
 
 									if multiMessage != nil {

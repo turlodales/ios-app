@@ -31,7 +31,7 @@ class ImageDisplayViewController : DisplayViewController {
 	var scrollView: ImageScrollView?
 
 	var activityIndicatorView: UIActivityIndicatorView = {
-		let activityIndicator = UIActivityIndicatorView(style: UIActivityIndicatorView.Style.white)
+		let activityIndicator = UIActivityIndicatorView(style: .medium)
 		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
 		return activityIndicator
 	}()
@@ -64,7 +64,7 @@ class ImageDisplayViewController : DisplayViewController {
 				let downsampleOptions =  [kCGImageSourceCreateThumbnailFromImageAlways: true,
 										  kCGImageSourceShouldCacheImmediately: true,
 										  kCGImageSourceCreateThumbnailWithTransform: true,
-										  kCGImageSourceThumbnailMaxPixelSize: maxDimensionInPixels] as CFDictionary
+								   kCGImageSourceThumbnailMaxPixelSize: maxDimensionInPixels] as [CFString : Any] as CFDictionary
 				serialQueue.async {
 
 					if let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) {
@@ -136,7 +136,7 @@ class ImageDisplayViewController : DisplayViewController {
 			}
 
 		} else {
-			let alert = ThemedAlertController(with: "Error".localized, message: "Could not get the picture".localized, okLabel: "OK")
+			let alert = ThemedAlertController(with: OCLocalizedString("Error", nil), message: OCLocalizedString("Could not get the picture", nil), okLabel: "OK")
 			self.parent?.present(alert, animated: true) {
 				self.parent?.dismiss(animated: true)
 			}
@@ -220,6 +220,13 @@ extension ImageDisplayViewController: DisplayExtension {
 extension ImageDisplayViewController: UIGestureRecognizerDelegate {
 
 	func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+		if gestureRecognizer == tapToZoomGestureRecognizer,
+		   scrollView?.hasActiveImageAnalysisSelection == true, // allow selection when VisionKit image analysis is active
+		   let otherGestureRecognizer = otherGestureRecognizer as? UITapGestureRecognizer,
+		   otherGestureRecognizer.numberOfTapsRequired == 2 {
+			return true
+		}
+
 		if gestureRecognizer === tapToZoomGestureRecognizer && otherGestureRecognizer === showHideBarsTapGestureRecognizer {
 			return true
 		}

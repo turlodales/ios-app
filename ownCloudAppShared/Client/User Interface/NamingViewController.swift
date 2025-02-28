@@ -19,25 +19,26 @@
 import UIKit
 import ownCloudSDK
 
-public typealias StringValidatorResult = (Bool, String?, String?)
-public typealias StringValidatorHandler = (String) -> StringValidatorResult
+public typealias StringValidatorResult = (Bool, String?, String?) // (validationPassed, validationErrorTitle, validationErrorMessage)
+public typealias StringValidatorHandler = (_ stringToCheck: String) -> StringValidatorResult
 
-open class NamingViewController: UIViewController, Themeable {
+open class NamingViewController: UIViewController {
 	weak open var item: OCItem?
 	weak open var core: OCCore?
 	open var completion: (String?, NamingViewController) -> Void
 	open var stringValidator: StringValidatorHandler?
 	open var defaultName: String?
+	open var requiredFileExtension: String?
 
 	private var blurView: UIVisualEffectView
 
 	private var stackView: UIStackView
 
 	private var thumbnailContainer: UIView
-	private var thumbnailImageView: UIImageView
+	private var thumbnailImageView: ResourceViewHost
 
 	private var nameContainer: UIView
-	private var nameTextField: UITextField
+	private var nameTextField: ThemeCSSTextField
 
 	private var textfieldTopAnchorConstraint: NSLayoutConstraint
 	private var textfieldCenterYAnchorConstraint: NSLayoutConstraint
@@ -52,24 +53,26 @@ open class NamingViewController: UIViewController, Themeable {
 
 	private let thumbnailSize = CGSize(width: 150.0, height: 150.0)
 
-	public init(with item: OCItem? = nil, core: OCCore? = nil, defaultName: String? = nil, stringValidator: StringValidatorHandler? = nil, completion: @escaping (String?, NamingViewController) -> Void) {
+	open var fallbackIcon: OCResource?
+
+	public init(with item: OCItem? = nil, core: OCCore? = nil, defaultName: String? = nil, stringValidator: StringValidatorHandler? = nil, fallbackIcon: OCResource? = nil, completion: @escaping (String?, NamingViewController) -> Void) {
 		self.item = item
 		self.core = core
 		self.completion = completion
 		self.stringValidator = stringValidator
 		self.defaultName = defaultName
+		self.fallbackIcon = fallbackIcon
 
-		blurView = UIVisualEffectView(effect: UIBlurEffect(style: Theme.shared.activeCollection.backgroundBlurEffectStyle))
+		blurView = UIVisualEffectView(effect: UIBlurEffect(style: Theme.shared.activeCollection.css.getBlurEffectStyle()))
 
 		stackView = UIStackView(frame: .zero)
 
 		thumbnailContainer = UIView(frame: .zero)
 
-		thumbnailImageView = UIImageView(frame: .zero)
-		thumbnailImageView.contentMode = .scaleAspectFit
+		thumbnailImageView = ResourceViewHost()
 
 		nameContainer = UIView(frame: .zero)
-		nameTextField = UITextField(frame: .zero)
+		nameTextField = ThemeCSSTextField()
 		nameTextField.accessibilityIdentifier = "name-text-field"
 
 		textfieldCenterYAnchorConstraint = nameTextField.centerYAnchor.constraint(equalTo: nameContainer.centerYAnchor)
@@ -79,16 +82,14 @@ open class NamingViewController: UIViewController, Themeable {
 		thumbnailHeightAnchorConstraint = thumbnailImageView.heightAnchor.constraint(equalToConstant: 150)
 
 		super.init(nibName: nil, bundle: nil)
-
-		Theme.shared.register(client: self, applyImmediately: true)
 	}
 
-	convenience public init(with item: OCItem, core: OCCore? = nil, stringValidator: StringValidatorHandler? = nil, completion: @escaping (String?, NamingViewController) -> Void) {
-		self.init(with: item, core: core, defaultName: nil, stringValidator: stringValidator, completion: completion)
+	convenience public init(with item: OCItem, core: OCCore? = nil, stringValidator: StringValidatorHandler? = nil, fallbackIcon: OCResource? = nil, completion: @escaping (String?, NamingViewController) -> Void) {
+		self.init(with: item, core: core, defaultName: nil, stringValidator: stringValidator, fallbackIcon: fallbackIcon, completion: completion)
 	}
 
-	convenience public init(with core: OCCore? = nil, defaultName: String, stringValidator: StringValidatorHandler? = nil, completion: @escaping (String?, NamingViewController) -> Void) {
-		self.init(with: nil, core: core, defaultName: defaultName, stringValidator: stringValidator, completion: completion)
+	convenience public init(with core: OCCore? = nil, defaultName: String, stringValidator: StringValidatorHandler? = nil, fallbackIcon: OCResource? = nil, completion: @escaping (String?, NamingViewController) -> Void) {
+		self.init(with: nil, core: core, defaultName: defaultName, stringValidator: stringValidator, fallbackIcon: fallbackIcon, completion: completion)
 	}
 
 	required public init?(coder aDecoder: NSCoder) {
@@ -97,13 +98,6 @@ open class NamingViewController: UIViewController, Themeable {
 
 	deinit {
 		NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardDidShowNotification, object: nil)
-		Theme.shared.unregister(client: self)
-	}
-
-	open func applyThemeCollection(theme: Theme, collection: ThemeCollection, event: ThemeEvent) {
-		nameTextField.backgroundColor = collection.tableBackgroundColor
-		nameTextField.textColor = collection.tableRowColors.labelColor
-		nameTextField.keyboardAppearance = collection.keyboardAppearance
 	}
 
 	override open func viewDidLoad() {
@@ -114,11 +108,14 @@ open class NamingViewController: UIViewController, Themeable {
 
 		if let item = item, let core = core {
 			nameTextField.text = item.name
-			thumbnailImageView.image = item.icon(fitInSize: thumbnailSize)
-			thumbnailImageView.setThumbnailImage(using: core, from: item, with: thumbnailSize)
+
+			let thumbnailRequest = OCResourceRequestItemThumbnail.request(for: item, maximumSize: thumbnailSize, scale: 0, waitForConnectivity: true, changeHandler: nil)
+			thumbnailImageView.request = thumbnailRequest
+
+			core.vault.resourceManager?.start(thumbnailRequest)
 		} else {
 			nameTextField.text = defaultName
-			thumbnailImageView.image = Theme.shared.image(for: "folder", size: thumbnailSize)
+			thumbnailImageView.activeViewProvider = (fallbackIcon as? OCViewProvider) ?? ResourceItemIcon.folder
 		}
 
 		// Navigation buttons
@@ -148,7 +145,7 @@ open class NamingViewController: UIViewController, Themeable {
 			thumbnailImageView.widthAnchor.constraint(equalTo: thumbnailImageView.heightAnchor),
 			thumbnailImageView.centerXAnchor.constraint(equalTo: thumbnailContainer.centerXAnchor),
 			thumbnailImageView.centerYAnchor.constraint(equalTo: thumbnailContainer.centerYAnchor)
-			])
+		])
 
 		// Thumbnail container View
 		thumbnailContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -156,6 +153,7 @@ open class NamingViewController: UIViewController, Themeable {
 
 		// Name textfield
 		nameTextField.translatesAutoresizingMaskIntoConstraints = false
+		nameTextField.requiredFileExtension = requiredFileExtension
 		nameContainer.addSubview(nameTextField)
 		NSLayoutConstraint.activate([
 			nameTextField.heightAnchor.constraint(equalToConstant: 40),
@@ -171,7 +169,7 @@ open class NamingViewController: UIViewController, Themeable {
 		nameTextField.autocorrectionType = .no
 		nameTextField.borderStyle = .roundedRect
 		nameTextField.clearButtonMode = .always
-		nameTextField.accessibilityLabel = "Folder name".localized
+		nameTextField.accessibilityLabel = OCLocalizedString("Folder name", nil)
 
 		// Name container view
 		nameContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -271,7 +269,9 @@ open class NamingViewController: UIViewController, Themeable {
 	}
 
 	@objc open func textfieldDidChange(_ sender: UITextField) {
-		if sender.text != "" {
+		let filename = sender.text
+
+		if filename != "", requiredFileExtension == nil || ((requiredFileExtension != nil) && filename != ".\(requiredFileExtension!)") {
 			doneButton?.isEnabled = true
 		} else {
 			doneButton?.isEnabled = false
@@ -295,9 +295,9 @@ open class NamingViewController: UIViewController, Themeable {
 						self.completion(self.nameTextField.text!, self)
 					}
 				} else {
-					let controller = ThemedAlertController(title: validationErrorTitle ?? "Forbidden Characters".localized, message: validationErrorMessage, preferredStyle: .alert)
+					let controller = ThemedAlertController(title: validationErrorTitle ?? OCLocalizedString("Forbidden Characters", nil), message: validationErrorMessage, preferredStyle: .alert)
 					controller.view.accessibilityIdentifier = "forbidden-characters-alert"
-					let okAction = UIAlertAction(title: "OK".localized, style: .default)
+					let okAction = UIAlertAction(title: OCLocalizedString("OK", nil), style: .default)
 					controller.addAction(okAction)
 					self.present(controller, animated: true)
 				}
@@ -348,10 +348,22 @@ extension NamingViewController: UITextFieldDelegate {
 
 			textField.selectedTextRange = nameTextField.textRange(from: nameTextField.beginningOfDocument, to:position)
 
+		} else if let name = textField.text,
+		  	  let range = name.range(of: ".", options: .backwards),
+			  let position: UITextPosition = nameTextField.position(from: nameTextField.beginningOfDocument, offset: range.lowerBound.utf16Offset(in: name)) {
+			textField.selectedTextRange = nameTextField.textRange(from: nameTextField.beginningOfDocument, to:position)
 		} else {
 			textField.selectedTextRange = nameTextField.textRange(from: nameTextField.beginningOfDocument, to: nameTextField.endOfDocument)
 		}
+	}
 
+	public func textFieldShouldClear(_ textField: UITextField) -> Bool {
+		if let requiredFileExtension {
+			textField.text = "." + requiredFileExtension
+			textField.selectedTextRange = textField.textRange(from: textField.beginningOfDocument, to: textField.beginningOfDocument)
+			return false
+		}
+		return true
 	}
 
 	open func textFieldShouldReturn(_ textField: UITextField) -> Bool {

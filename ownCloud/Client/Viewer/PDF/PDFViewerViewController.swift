@@ -20,7 +20,6 @@ import UIKit
 import ownCloudSDK
 import ownCloudAppShared
 import PDFKit
-import SafariServices
 
 class PulsatingButton: UIButton {
 
@@ -116,7 +115,7 @@ class PDFViewerViewController: DisplayViewController, DisplayExtension, UIPopove
 
 	private var fullScreen: Bool = false {
 		didSet {
-			self.navigationController?.setNavigationBarHidden(fullScreen, animated: true)
+			browserNavigationViewController?.setNavigationBarHidden(fullScreen, animated: true)
 			isFullScreenModeEnabled = fullScreen
 			pageCountButton.isHidden = fullScreen
 			pageCountContainerView.isHidden = fullScreen
@@ -172,7 +171,7 @@ class PDFViewerViewController: DisplayViewController, DisplayExtension, UIPopove
 				containerView.addArrangedSubview(pdfView)
 
 				pageCountButton.translatesAutoresizingMaskIntoConstraints = false
-				pageCountButton.accessibilityLabel = "Go to page".localized
+				pageCountButton.accessibilityLabel = OCLocalizedString("Go to page", nil)
 				pageCountButton.addTarget(self, action: #selector(goToPage), for: .touchDown)
 				pageCountContainerView.translatesAutoresizingMaskIntoConstraints = false
 				pageCountContainerView.addSubview(pageCountButton)
@@ -187,15 +186,9 @@ class PDFViewerViewController: DisplayViewController, DisplayExtension, UIPopove
 
 				self.view.addSubview(containerView)
 
-				if #available(iOS 13, *) {
-					self.view.backgroundColor = self.pdfView.backgroundColor
-					thumbnailView.backgroundColor = self.pdfView.backgroundColor
-					pageCountContainerView.backgroundColor = self.pdfView.backgroundColor
-				} else {
-					self.view.backgroundColor = .gray
-					thumbnailView.backgroundColor = .gray
-					pageCountContainerView.backgroundColor = .gray
-				}
+				self.view.backgroundColor = self.pdfView.backgroundColor
+				thumbnailView.backgroundColor = self.pdfView.backgroundColor
+				pageCountContainerView.backgroundColor = self.pdfView.backgroundColor
 
 				setupConstraints()
 
@@ -230,48 +223,35 @@ class PDFViewerViewController: DisplayViewController, DisplayExtension, UIPopove
 			}
 		}
 
-		if #available(iOS 13, *) {
-			let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.toggleFullscreen(_:)))
-			tapRecognizer.numberOfTapsRequired = 2
-			pdfView.addGestureRecognizer(tapRecognizer)
-			supportsFullScreenMode = true
-		}
-		//pdfView.isUserInteractionEnabled = true
+		let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.toggleFullscreen(_:)))
+		tapRecognizer.numberOfTapsRequired = 2
+		pdfView.addGestureRecognizer(tapRecognizer)
+		supportsFullScreenMode = true
 	}
 
 	@objc func toggleFullscreen(_ sender: UITapGestureRecognizer) {
 		self.fullScreen.toggle()
 	}
 
-	override func viewDidAppear(_ animated: Bool) {
-		super.viewDidAppear(animated)
-	}
-
 	override func viewDidLayoutSubviews() {
 		super.viewDidLayoutSubviews()
 		pdfView.scaleFactor = pdfView.scaleFactorForSizeToFit
 		pdfView.autoScales = true
-		if #available(iOS 13, *) {
-			self.calculateThumbnailSize()
-		}
+		self.calculateThumbnailSize()
 	}
 
 	override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
 		super.viewWillTransition(to: size, with: coordinator)
-		// Crashes on pre-iOS 13
-		if #available(iOS 13, *) {
-			coordinator.animate(alongsideTransition: nil) { (_) in
-				self.calculateThumbnailSize()
-			}
+
+		coordinator.animate(alongsideTransition: nil) { (_) in
+			self.calculateThumbnailSize()
 		}
 	}
 
 	override func willTransition(to newCollection: UITraitCollection, with coordinator: UIViewControllerTransitionCoordinator) {
-		if #available(iOS 13, *) {
-			coordinator.animate(alongsideTransition: nil) { (_) in
-				self.setThumbnailPosition()
-				self.calculateThumbnailSize()
-			}
+		coordinator.animate(alongsideTransition: nil) { (_) in
+			self.setThumbnailPosition()
+			self.calculateThumbnailSize()
 		}
 	}
 
@@ -293,21 +273,20 @@ class PDFViewerViewController: DisplayViewController, DisplayExtension, UIPopove
 
 		guard let pdfDocument = pdfView.document else { return }
 
-		let alertMessage = NSString(format: "This document has %@ pages".localized as NSString, "\(pdfDocument.pageCount)") as String
-		let alertController = ThemedAlertController(title: "Go to page".localized, message: alertMessage, preferredStyle: .alert)
-		alertController.addAction(UIAlertAction(title: "Cancel".localized, style: .cancel, handler: nil))
+		let alertMessage = NSString(format: OCLocalizedString("This document has %@ pages", nil) as NSString, "\(pdfDocument.pageCount)") as String
+		let alertController = ThemedAlertController(title: OCLocalizedString("Go to page", nil), message: alertMessage, preferredStyle: .alert)
+		alertController.addAction(UIAlertAction(title: OCLocalizedString("Cancel", nil), style: .cancel, handler: nil))
 
 		alertController.addTextField(configurationHandler: { textField in
-			textField.placeholder = "Page".localized
+			textField.placeholder = OCLocalizedString("Page", nil)
 			textField.keyboardType = .decimalPad
 		})
 
-		alertController.addAction(UIAlertAction(title: "OK".localized, style: .default, handler: { [unowned self] _ in
+		alertController.addAction(UIAlertAction(title: OCLocalizedString("OK", nil), style: .default, handler: { [unowned self] _ in
 			if let pageLabel = alertController.textFields?.first?.text {
 				self.selectPage(with: pageLabel)
 			}
-			self.view.endEditing(true)										  
-													  
+			self.view.endEditing(true)
 		}))
 
 		self.present(alertController, animated: true)
@@ -436,8 +415,8 @@ class PDFViewerViewController: DisplayViewController, DisplayExtension, UIPopove
 		searchButtonItem = UIBarButtonItem(barButtonSystemItem: .search, target: self, action: #selector(search))
 		outlineItem = UIBarButtonItem(image: UIImage(named: "ic_pdf_outline"), style: .plain, target: self, action: #selector(showOutline))
 
-		searchButtonItem?.accessibilityLabel = "Search PDF".localized
-		outlineItem?.accessibilityLabel = "Outline".localized
+		searchButtonItem?.accessibilityLabel = OCLocalizedString("Search PDF", nil)
+		outlineItem?.accessibilityLabel = OCLocalizedString("Outline", nil)
 
 		return [
 			actionBarButtonItem,
@@ -507,10 +486,10 @@ class PDFViewerViewController: DisplayViewController, DisplayExtension, UIPopove
 					self.pdfView.go(to: page)
 				}
 			} else {
-				let alertController = ThemedAlertController(title: "Invalid Page".localized,
-									    message: "The entered page number doesn't exist".localized,
+				let alertController = ThemedAlertController(title: OCLocalizedString("Invalid Page", nil),
+									    message: OCLocalizedString("The entered page number doesn't exist", nil),
 									    preferredStyle: .alert)
-				alertController.addAction(UIAlertAction(title: "OK".localized, style: .default, handler: nil))
+				alertController.addAction(UIAlertAction(title: OCLocalizedString("OK", nil), style: .default, handler: nil))
 				self.present(alertController, animated: true, completion: nil)
 			}
 		}
@@ -523,14 +502,13 @@ class PDFViewerViewController: DisplayViewController, DisplayExtension, UIPopove
 
 		let pageNrText = "\(pdf.index(for: page) + 1)"
 		let maxPageCountText = "\(pdf.pageCount)"
-		let title = NSString(format: "%@ of %@".localized as NSString, pageNrText, maxPageCountText) as String
+		let title = NSString(format: OCLocalizedString("%@ of %@", nil) as NSString, pageNrText, maxPageCountText) as String
 		pageCountButton.setTitle(title, for: .normal)
 	}
 }
 
 extension PDFViewerViewController : PDFViewDelegate {
     func pdfViewWillClick(onLink sender: PDFView, with url: URL) {
-        let vc = SFSafariViewController(url: url)
-        present(vc, animated: true)
+    	VendorServices.shared.openSFWebView(on: self, for: url)
     }
 }

@@ -20,7 +20,7 @@ import UIKit
 import ownCloudSDK
 import ownCloudAppShared
 
-protocol ClientActivityCellDelegate : class {
+protocol ClientActivityCellDelegate : AnyObject {
 
 	func showMessage(for activity: OCActivity)
 
@@ -62,9 +62,7 @@ class ClientActivityCell: ThemeTableViewCell {
 
 		messageButton.setTitle("⚠️", for: .normal)
 		messageButton.contentMode = .center
-		if #available(iOS 13.4, *) {
-			messageButton.isPointerInteractionEnabled = true
-		}
+		messageButton.isPointerInteractionEnabled = true
 		messageButton.isHidden = true
 		messageButton.addTarget(self, action: #selector(messageButtonTapped), for: .touchUpInside)
 
@@ -97,6 +95,8 @@ class ClientActivityCell: ThemeTableViewCell {
 			messageButton.topAnchor.constraint(equalTo: statusCircle.topAnchor),
 			messageButton.bottomAnchor.constraint(equalTo: statusCircle.bottomAnchor)
 		])
+		
+		self.secureView(core: core)
 	}
 
 	// MARK: - Message support

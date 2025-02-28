@@ -17,20 +17,34 @@
  */
 
 #import <ownCloudSDK/ownCloudSDK.h>
-#import <ownCloudApp/ownCloudApp.h>
+
+// BEGIN: Shared with ownCloudApp.framework
+#import "Branding.h"
+#import "BrandingClassSettingsSource.h"
+#import "NotificationManager.h"
+#import "NotificationMessagePresenter.h"
+#import "NotificationAuthErrorForwarder.h"
+#import "OCBookmark+AppExtensions.h"
+#import "OCBookmark+FPServices.h"
+#import "OCCore+BundleImport.h"
+#import "OCFileProviderSettings.h"
+#import "VFSManager.h"
+#import "AppLockSettings.h"
+// END: shared with ownCloudApp.framework
 
 #import "FileProviderExtension.h"
-#import "FileProviderEnumerator.h"
 #import "OCItem+FileProviderItem.h"
 #import "FileProviderExtensionThumbnailRequest.h"
 #import "NSError+MessageResolution.h"
 #import "FileProviderServiceSource.h"
-#import <CrashReporter.h>
+#import "FileProviderContentEnumerator.h"
 
 @interface FileProviderExtension ()
 {
 	NSFileCoordinator *_fileCoordinator;
 	NotificationMessagePresenter *_messagePresenter;
+
+	OCVFSCore *_vfsCore;
 
 	BOOL _skipAuthorizationFailure;
 }
@@ -46,13 +60,9 @@
 
 - (instancetype)init
 {
-	[self setupCrashReporting];
-
 	[OCLogger logLevel]; // Make sure +logLevel is called in File Provider, to properly set up the log level
 
 	NSDictionary *bundleInfoDict = [[NSBundle bundleForClass:[FileProviderExtension class]] infoDictionary];
-
-	OCCoreManager.sharedCoreManager.memoryConfiguration = OCCoreMemoryConfigurationMinimum;
 
 	OCAppIdentity.sharedAppIdentity.appIdentifierPrefix = bundleInfoDict[@"OCAppIdentifierPrefix"];
 	OCAppIdentity.sharedAppIdentity.keychainAccessGroupIdentifier = bundleInfoDict[@"OCKeychainAccessGroupIdentifier"];
@@ -81,35 +91,14 @@
 //	});
 //}
 
-- (void)setupCrashReporting {
+- (OCVFSCore *)vfsCore
+{
+	if (_vfsCore == nil)
+	{
+		_vfsCore = [VFSManager.sharedManager vfsForBookmark:self.bookmark];
+	}
 
-    static dispatch_once_t token;
-
-    dispatch_once (&token, ^{
-		// Initialize crash reporter as soon as FP extension is loaded into memory
-		PLCrashReporterConfig *configuration = [PLCrashReporterConfig defaultConfiguration];
-		PLCrashReporter *reporter = [[PLCrashReporter alloc] initWithConfiguration:configuration];
-
-		// Do we have a pending crash report from previous session?
-		if ([reporter hasPendingCrashReport]) {
-
-			// Generate a report and add it to the log file
-			NSData *crashData = [reporter loadPendingCrashReportData];
-			if (crashData != nil) {
-				PLCrashReport *report = [[PLCrashReport alloc] initWithData:crashData error:nil];
-				if (report != nil) {
-					NSString *crashString = [PLCrashReportTextFormatter stringValueForCrashReport:report withTextFormat:PLCrashReportTextFormatiOS];
-					OCTLogError(@[@"CRASH_REPORTER"], @"%@", crashString);
-				}
-			}
-
-			// Purge the report which we just added to the log
-			[reporter purgePendingCrashReport];
-		}
-
-		// Start intercepting OS signals to catch crashes
-		[reporter enableCrashReporter];
-    });
+	return (_vfsCore);
 }
 
 - (void)dealloc
@@ -146,7 +135,7 @@
 			{
 				OCLogDebug(@"Initial root container scan..");
 
-				OCQuery *query = [OCQuery queryForPath:@"/"];
+				OCQuery *query = [OCQuery queryForLocation:OCLocation.legacyRootLocation];
 				__weak OCCore *weakCore = self.core;
 
 				query.changesAvailableNotificationHandler = ^(OCQuery *query) {
@@ -170,86 +159,103 @@
 #pragma mark - ItemIdentifier & URL lookup
 - (NSFileProviderItem)itemForIdentifier:(NSFileProviderItemIdentifier)identifier error:(NSError *__autoreleasing  _Nullable *)outError
 {
-	__block NSFileProviderItem item = nil;
-	__block NSError *returnError = nil;
+	NSFileProviderItem item = nil;
+	NSError *returnError = nil;
 
-	OCSyncExec(itemRetrieval, {
-		// Resolve the given identifier to a record in the model
-		NSError *coreError = nil;
-		OCCore *core = [self coreWithError:&coreError];
+	if (identifier == nil)
+	{
+		returnError = OCError(OCErrorInvalidParameter);
+	}
 
-		if (core != nil)
+	if (returnError == nil)
+	{
+		if ([identifier isEqual:NSFileProviderRootContainerItemIdentifier] || [identifier isEqual:OCVFSItemIDRoot])
 		{
-			if (coreError != nil)
-			{
-				returnError = coreError;
-			}
-			else
-			{
-				if ([identifier isEqual:NSFileProviderRootContainerItemIdentifier])
-				{
-					// Root item
-					OCDatabase *database;
-
-					if (((database = core.vault.database) != nil) && database.isOpened)
-					{
-						[database retrieveCacheItemsAtPath:@"/" itemOnly:YES completionHandler:^(OCDatabase *db, NSError *error, OCSyncAnchor syncAnchor, NSArray<OCItem *> *items) {
-							item = items.firstObject;
-							returnError = error;
-
-							OCSyncExecDone(itemRetrieval);
-						}];
-					}
-					else
-					{
-						// Database not available
-						OCSyncExecDone(itemRetrieval);
-					}
-				}
-				else
-				{
-					// Other item
-					[core retrieveItemFromDatabaseForLocalID:(OCLocalID)identifier completionHandler:^(NSError *error, OCSyncAnchor syncAnchor, OCItem *itemFromDatabase) {
-						item = itemFromDatabase;
-						returnError = error;
-
-						OCSyncExecDone(itemRetrieval);
-					}];
-				}
-			}
+			item = (NSFileProviderItem)self.vfsCore.rootNode;
 		}
 		else
 		{
-			returnError = coreError;
-
-			OCSyncExecDone(itemRetrieval);
+			item = (NSFileProviderItem)[self.vfsCore itemForIdentifier:(OCVFSItemID)identifier error:&returnError];
 		}
-	});
+	}
 
-	if ((item == nil) && (returnError == nil))
+	OCLogDebug(@"-itemForIdentifier:error: %@ resolved into %@ / %@", identifier, item, returnError);
+
+	if ((item == nil) && (returnError == nil) && (identifier != nil))
 	{
 		returnError = [NSError fileProviderErrorForNonExistentItemWithIdentifier:identifier];
 	}
 
-	// OCLogDebug(@"-itemForIdentifier:error: %@ => %@ / %@", identifier, item, returnError);
+	OCLogDebug(@"-itemForIdentifier:error: %@ returned as %@ / %@", identifier, item, returnError);
 
 	if (outError != NULL)
 	{
 		*outError = [returnError translatedError];
 	}
 
-	return item;
+	return (item);
+}
+
+- (OCItem *)ocItemForIdentifier:(NSFileProviderItemIdentifier)identifier vfsNode:(OCVFSNode **)outNode error:(NSError *__autoreleasing  _Nullable *)outError
+{
+	id item;
+	NSError *resolutionError = nil;
+
+	if ((item = [self itemForIdentifier:identifier error:&resolutionError]) != nil)
+	{
+		if ([item isKindOfClass:OCItem.class])
+		{
+			return (item);
+		}
+
+		if ([item isKindOfClass:OCVFSNode.class])
+		{
+			OCVFSNode *vfsNode = (OCVFSNode *)item;
+
+			if (outNode != NULL)
+			{
+				*outNode = vfsNode;
+			}
+
+			if (vfsNode.location != nil)
+			{
+				return (vfsNode.locationItem);
+			}
+		}
+	}
+
+	OCLogDebug(@"-ocItemForIdentifier:%@ could not find/return OCItem (resolutionError=%@)", identifier, resolutionError);
+
+	if (outError != NULL)
+	{
+		NSError *error;
+
+		if (identifier != nil)
+		{
+			error = [NSError fileProviderErrorForNonExistentItemWithIdentifier:identifier];
+		}
+		else
+		{
+			error = (resolutionError != nil) ? resolutionError : OCError(OCErrorInvalidParameter);
+		}
+
+		*outError = [error translatedError];
+	}
+
+	return (nil);
 }
 
 - (NSURL *)URLForItemWithPersistentIdentifier:(NSFileProviderItemIdentifier)identifier
 {
-	OCItem *item;
+//	OCItem *item;
 	NSURL *url = nil;
 
-	if ((item = (OCItem *)[self itemForIdentifier:identifier error:NULL]) != nil)
-	{
-		url = [self.core localURLForItem:item];
-	}
+	url = [self.vfsCore urlForItemIdentifier:(OCVFSItemID)identifier];
+
+//	if ((item = (OCItem *)[self itemForIdentifier:identifier error:NULL]) != nil)
+//	{
+//		url = [self.core localURLForItem:item];
+//	}
 
 	// OCLogDebug(@"-URLForItemWithPersistentIdentifier: %@ => %@", identifier, url);
 
@@ -269,33 +275,42 @@
 - (NSFileProviderItemIdentifier)persistentIdentifierForItemAtURL:(NSURL *)url
 {
 	// resolve the given URL to a persistent identifier using a database
-	NSArray <NSString *> *pathComponents = [url pathComponents];
-
-	// exploit the fact that the path structure has been defined as
-	// <base storage directory>/<item identifier>/<item file name> above
-	NSParameterAssert(pathComponents.count > 2);
 
 	// OCLogDebug(@"-persistentIdentifierForItemAtURL: %@", (pathComponents[pathComponents.count - 2]));
 
-	if ([pathComponents.lastObject isEqual:self.bookmark.fpServicesURLComponentName])
+	if ([url.lastPathComponent isEqual:self.bookmark.fpServicesURLComponentName])
 	{
 		return (url.lastPathComponent);
 	}
 
-	return pathComponents[pathComponents.count - 2];
+	return ([self.vfsCore itemIdentifierForURL:url]);
+}
+
+- (nullable OCItem *)cachedItemInParent:(OCItem *)parentItem withName:(NSString *)name isDirectory:(BOOL)isDirectory error:(__autoreleasing NSError * _Nullable * _Nullable)outError
+{
+	OCItem *item;
+
+	if ((item = [self.core cachedItemInParent:parentItem withName:name isDirectory:isDirectory error:outError]) != nil)
+	{
+		item.bookmarkUUID = self.core.bookmark.uuid.UUIDString;
+	}
+
+	return (item);
 }
 
 - (void)providePlaceholderAtURL:(NSURL *)url completionHandler:(void (^)(NSError * _Nullable))completionHandler
 {
 	NSFileProviderItemIdentifier identifier = [self persistentIdentifierForItemAtURL:url];
-	if (!identifier) {
+	if (identifier == nil)
+	{
 		completionHandler([NSError errorWithDomain:NSFileProviderErrorDomain code:NSFileProviderErrorNoSuchItem userInfo:nil]);
 		return;
 	}
 
 	NSError *error = nil;
 	NSFileProviderItem fileProviderItem = [self itemForIdentifier:identifier error:&error];
-	if (!fileProviderItem) {
+	if (fileProviderItem == nil)
+	{
 		completionHandler(error);
 		return;
 	}
@@ -323,6 +338,12 @@
 		 if ((item = [self itemForIdentifier:itemIdentifier error:&error]) != nil)
 		 {
 			FPLogCmdBegin(@"StartProviding", @"Downloading %@", item);
+
+			if (((OCItem *)item).type == OCItemTypeCollection) {
+				// Can't download folders
+				completionHandler([NSError errorWithDomain:NSCocoaErrorDomain code:NSFeatureUnsupportedError userInfo:@{}]);
+				return;
+			}
 
 			[self.core downloadItem:(OCItem *)item options:@{
 
@@ -392,12 +413,33 @@
 		 {
 			if ((parentItem = [self itemForIdentifier:item.parentItemIdentifier error:&error]) != nil)
 			{
-				[self.core reportLocalModificationOfItem:(OCItem *)item parentItem:(OCItem *)parentItem withContentsOfFileAtURL:changedItemURL isSecurityScoped:NO options:nil placeholderCompletionHandler:nil resultHandler:^(NSError *error, OCCore *core, OCItem *item, id parameter) {
-					OCLogDebug(@"Upload of update finished with error=%@ item=%@", error, item);
-				}];
+				OCItem *ocItem = OCTypedCast(item, OCItem);
+				OCItem *ocParentItem = OCTypedCast(parentItem, OCItem);
+
+				if ((ocParentItem == nil) && (ocItem != nil))
+				{
+					// If parentItem is returned as a OCVFSNode, fetch the parent folder OCItem from the cache
+					OCLocation *parentLocation = ocItem.location.parentLocation;
+
+					if (parentLocation != nil)
+					{
+						ocParentItem = [self.core cachedItemAtLocation:ocItem.location.parentLocation error:&error];
+					}
+				}
+
+				if ((ocItem != nil) && (ocParentItem != nil))
+				{
+					[self.core reportLocalModificationOfItem:(OCItem *)item parentItem:(OCItem *)ocParentItem withContentsOfFileAtURL:changedItemURL isSecurityScoped:NO options:nil placeholderCompletionHandler:nil resultHandler:^(NSError *error, OCCore *core, OCItem *item, id parameter) {
+						OCLogDebug(@"Upload of update finished with error=%@ item=%@", error, item);
+					}];
+
+					return;
+				}
 			}
 		 }
 	}
+
+	OCLogError(@"-itemChangedAtURL: called, but item and/or parentItem couldn't be resolved properly: item=%@, parentItem=%@", item, parentItem);
 
 	// ### Apple template comments: ###
 
@@ -428,7 +470,7 @@
 		 	// Cancel download if the item is currently downloading
 		 	if (item.isDownloading)
 		 	{
-		 		if ((downloadProgress = [self.core progressForItem:(OCItem *)item matchingEventType:OCEventTypeDownload]) != nil)
+				if ((downloadProgress = [self.core progressForItemWithLocalID:((OCItem *)item).localID matchingEventType:OCEventTypeDownload]) != nil)
 		 		{
 		 			[downloadProgress makeObjectsPerformSelector:@selector(cancel)];
 				}
@@ -475,9 +517,15 @@
 	NSError *error = nil;
 	OCItem *parentItem;
 
+	if (!OCFileProviderSettings.browseable)
+	{
+		completionHandler(nil, [OCErrorWithDescription(OCErrorInternal, OCLocalizedString(@"File Provider access has been disabled by the administrator. Please use the app to create new folders.", nil)) translatedError]);
+		return;
+	}
+
 	FPLogCmdBegin(@"CreateDir", @"Start of createDirectoryWithName=%@, inParentItemIdentifier=%@", directoryName, parentItemIdentifier);
 
-	if ((parentItem = (OCItem *)[self itemForIdentifier:parentItemIdentifier error:&error]) != nil)
+	if ((parentItem = [self ocItemForIdentifier:parentItemIdentifier vfsNode:NULL error:&error]) != nil)
 	{
 		// Detect collission with existing items
 		FPLogCmd(@"Creating folder %@ inside %@", directoryName, parentItem.path);
@@ -486,7 +534,7 @@
 		{
 			OCItem *existingItem;
 
-			if ((existingItem = [self.core cachedItemInParent:parentItem withName:directoryName isDirectory:YES error:NULL]) != nil)
+			if ((existingItem = [self cachedItemInParent:parentItem withName:directoryName isDirectory:YES error:NULL]) != nil)
 			{
 				FPLogCmd(@"Completed with collission with existingItem=%@ (locally detected)", existingItem);
 				if (@available(iOS 13.3, *))
@@ -519,7 +567,7 @@
 					// Folder already exists on the server
 					OCItem *existingItem;
 
-					if ((existingItem = [self.core cachedItemInParent:parentItem withName:directoryName isDirectory:YES error:NULL]) != nil)
+					if ((existingItem = [self cachedItemInParent:parentItem withName:directoryName isDirectory:YES error:NULL]) != nil)
 					{
 						FPLogCmd(@"Completed with collission with existingItem=%@ (server response)", existingItem);
 						if (@available(iOS 13.3, *))
@@ -567,8 +615,8 @@
 
 	FPLogCmdBegin(@"Reparent", @"Start of reparentItemWithIdentifier=%@, toParentItemWithIdentifier=%@, newName=%@", itemIdentifier, parentItemIdentifier, newName);
 
-	if (((item = (OCItem *)[self itemForIdentifier:itemIdentifier error:&error]) != nil) &&
-	    ((parentItem = (OCItem *)[self itemForIdentifier:parentItemIdentifier error:&error]) != nil))
+	if (((item = [self ocItemForIdentifier:itemIdentifier vfsNode:NULL error:&error]) != nil) &&
+	    ((parentItem = [self ocItemForIdentifier:parentItemIdentifier vfsNode:NULL error:&error]) != nil))
 	{
 		FPLogCmd(@"Moving %@ to %@ as %@", item, parentItem, ((newName != nil) ? newName : item.name));
 
@@ -588,7 +636,7 @@
 			// a cross-server move using OCCore actions. The complexity of such an undertaking should not be underestimated, though, as in
 			// the case of moving folders, we'd have to download and upload entire hierarchies of files - that could change while we're at it.
 			FPLogCmd(@"parentItem not found. Likely a cross-domain move. Changing error message accordingly.");
-			error = OCErrorWithDescription(OCErrorItemNotFound, OCLocalized(@"The destination folder couldn't be found on this server. Moving items across servers is currently not supported."));
+			error = OCErrorWithDescription(OCErrorItemNotFound, OCLocalizedString(@"The destination folder couldn't be found on this server. Moving items across servers is currently not supported.", nil));
 		}
 
 		FPLogCmd(@"Completed with item=%@ or parentItem=%@ not found, error=%@", item, parentItem, error);
@@ -603,7 +651,7 @@
 
 	FPLogCmdBegin(@"Rename", @"Start of renameItemWithIdentifier=%@, toName=%@", itemIdentifier, itemName);
 
-	if ((item = (OCItem *)[self itemForIdentifier:itemIdentifier error:&error]) != nil)
+	if ((item = [self ocItemForIdentifier:itemIdentifier vfsNode:NULL error:&error]) != nil)
 	{
 		FPLogCmd(@"Renaming %@ in %@ to %@", item, item.path.parentPath, itemName);
 
@@ -623,10 +671,20 @@
 {
 	NSError *error = nil;
 	OCItem *item;
+	OCVFSNode *vfsNode = nil;
 
 	FPLogCmdBegin(@"Delete", @"Start of deleteItemWithIdentifier=%@", itemIdentifier);
 
-	if ((item = (OCItem *)[self itemForIdentifier:itemIdentifier error:&error]) != nil)
+	item = [self ocItemForIdentifier:itemIdentifier vfsNode:&vfsNode error:&error];
+
+//	if (vfsNode != nil)
+//	{
+//		FPLogCmd(@"Rejecting deletion of %@", vfsNode);
+//		completionHandler([NSError fileProviderErrorForRejectedDeletionOfItem:]);
+//		return;
+//	}
+
+	if (item != nil)
 	{
 		FPLogCmd(@"Deleting %@", item);
 
@@ -647,9 +705,15 @@
 	NSError *error = nil;
 	BOOL stopAccess = NO;
 
+	if (!OCFileProviderSettings.browseable)
+	{
+		completionHandler(nil, [OCErrorWithDescription(OCErrorInternal, OCLocalizedString(@"File Provider access has been disabled by the administrator. Please use the share extension to import files.", nil)) translatedError]);
+		return;
+	}
+
 	if (![Branding.sharedBranding isImportMethodAllowed:BrandingFileImportMethodFileProvider])
 	{
-		completionHandler(nil, [OCErrorWithDescription(OCErrorInternal, OCLocalized(@"Importing files through the File Provider is not allowed on this device.")) translatedError]);
+		completionHandler(nil, [OCErrorWithDescription(OCErrorInternal, OCLocalizedString(@"Importing files through the File Provider is not allowed on this device.", nil)) translatedError]);
 
 		return;
 	}
@@ -685,12 +749,12 @@
 			}
 		}
 
-		if ((parentItem = (OCItem *)[self itemForIdentifier:parentItemIdentifier error:&error]) != nil)
+		if ((parentItem = [self ocItemForIdentifier:parentItemIdentifier vfsNode:NULL error:&error]) != nil)
 		{
 			// Detect name collissions
 			OCItem *existingItem;
 
-			if ((existingItem = [self.core cachedItemInParent:parentItem withName:importFileName isDirectory:NO error:NULL]) != nil)
+			if ((existingItem = [self cachedItemInParent:parentItem withName:importFileName isDirectory:NO error:NULL]) != nil)
 			{
 				// Return collission error
 				FPLogCmd(@"Completed with collission with existingItem=%@ (local)", existingItem);
@@ -705,6 +769,7 @@
 				OCCoreOptionImportByCopying : @(importByCopying)
 			} placeholderCompletionHandler:^(NSError *error, OCItem *item) {
 				FPLogCmd(@"Completed with placeholderItem=%@, error=%@", item, error);
+				item.bookmarkUUID = self.core.bookmark.uuid.UUIDString; // ensure bookmarkUUID is present so that vfsItemID / itemIdentifier succeed
 				completionHandler(item, [error translatedError]);
 			} resultHandler:^(NSError *error, OCCore *core, OCItem *item, id parameter) {
 				if ([error.domain isEqual:OCHTTPStatusErrorDomain] && (error.code == OCHTTPStatusCodePRECONDITION_FAILED))
@@ -759,7 +824,7 @@
 
 	FPLogCmdBegin(@"FavoriteRank", @"Start of setFavoriteRank=%@, forItemIdentifier=%@", favoriteRank, itemIdentifier);
 
-	if ((item = (OCItem *)[self itemForIdentifier:itemIdentifier error:&error]) != nil)
+	if ((item = [self ocItemForIdentifier:itemIdentifier vfsNode:NULL error:&error]) != nil)
 	{
 //		item.isFavorite = @(favoriteRank != nil); // Stored on server
 
@@ -796,7 +861,7 @@
 
 	FPLogCmdBegin(@"TagData", @"Start of setTagData=%@, forItemIdentifier=%@", tagData, itemIdentifier);
 
-	if ((item = (OCItem *)[self itemForIdentifier:itemIdentifier error:&error]) != nil)
+	if ((item = [self ocItemForIdentifier:itemIdentifier vfsNode:NULL error:&error]) != nil)
 	{
 		[item setLocalTagData:tagData]; // Stored in local attributes
 
@@ -832,7 +897,7 @@
 
 	FPLogCmdBegin(@"Trash", @"Start of trashItemWithIdentifier=%@", itemIdentifier);
 
-	if ((item = (OCItem *)[self itemForIdentifier:itemIdentifier error:&error]) != nil)
+	if ((item = [self ocItemForIdentifier:itemIdentifier vfsNode:NULL error:&error]) != nil)
 	{
 		FPLogCmd(@"Deleting %@", item);
 
@@ -871,6 +936,20 @@
 #pragma mark - Enumeration
 - (nullable id<NSFileProviderEnumerator>)enumeratorForContainerItemIdentifier:(NSFileProviderItemIdentifier)containerItemIdentifier error:(NSError **)error
 {
+	OCLogDebug(@"##### Enumerator request for %@", containerItemIdentifier);
+
+	if (!OCFileProviderSettings.browseable)
+	{
+		if (error != NULL)
+		{
+			*error = [NSError errorWithDomain:NSFileProviderErrorDomain code:NSFileProviderErrorNotAuthenticated userInfo:nil];
+		}
+
+		OCLogDebug(@"##### Enumerator request for %@: FileProvider disabled: %@", containerItemIdentifier, ((error != NULL) ? *error : nil));
+
+		return (nil);
+	}
+
 	if (AppLockSettings.sharedAppLockSettings.lockEnabled)
 	{
 		NSData *lockedDateData = [[[OCAppIdentity sharedAppIdentity] keychain] readDataFromKeychainItemForAccount:@"app.passcode" path:@"lockedDate"];
@@ -889,6 +968,8 @@
 					*error = [NSError errorWithDomain:NSFileProviderErrorDomain code:NSFileProviderErrorNotAuthenticated userInfo:nil];
 				}
 
+				OCLogDebug(@"##### Enumerator request for %@: unauthenticated return(1): %@", containerItemIdentifier, ((error != NULL) ? *error : nil));
+
 				return (nil);
 			}
 		} else if ((unlockData != nil) && ![[NSKeyedUnarchiver unarchivedObjectOfClass:NSNumber.class fromData:unlockData error:NULL] boolValue]) {
@@ -896,6 +977,8 @@
 			{
 				*error = [NSError errorWithDomain:NSFileProviderErrorDomain code:NSFileProviderErrorNotAuthenticated userInfo:nil];
 			}
+
+			OCLogDebug(@"##### Enumerator request for %@: unauthenticated return(2): %@", containerItemIdentifier, ((error != NULL) ? *error : nil));
 
 			return (nil);
 		}
@@ -908,19 +991,45 @@
 			*error = [NSError errorWithDomain:NSFileProviderErrorDomain code:NSFileProviderErrorNotAuthenticated userInfo:nil];
 		}
 
+		OCLogDebug(@"##### Enumerator request for %@: missing domain ID: %@", containerItemIdentifier, ((error != NULL) ? *error : nil));
+
 		return (nil);
 	}
 
+	id<NSFileProviderEnumerator> enumerator = nil;
+
 	if (![containerItemIdentifier isEqualToString:NSFileProviderWorkingSetContainerItemIdentifier])
 	{
-		FileProviderEnumerator *enumerator = [[FileProviderEnumerator alloc] initWithBookmark:self.bookmark enumeratedItemIdentifier:containerItemIdentifier];
+		if ([containerItemIdentifier isEqual:NSFileProviderRootContainerItemIdentifier])
+		{
+			// Request core to enable continuous checks for new/changed spaces if app is not running in parallel
+			// Also shorten time to core availability when users decide to descend into an actual drive
+			OCCore *core = nil;
+			NSError *coreError = nil;
 
-		enumerator.fileProviderExtension = self;
+			if ((core = [self coreWithError:&coreError]) == nil)
+			{
+				// Error requesting core
+				if (error != NULL)
+				{
+					*error = coreError;
+				}
 
-		return (enumerator);
+				OCLogDebug(@"##### Enumerator request for %@: missing core: %@", containerItemIdentifier, ((error != NULL) ? *error : nil));
+
+				return (nil);
+			}
+
+			// Change identifier to VFS RootItem ID
+			containerItemIdentifier = OCVFSItemIDRoot;
+		}
+
+		enumerator = [[FileProviderContentEnumerator alloc] initWithVFSCore:self.vfsCore containerItemIdentifier:containerItemIdentifier];
 	}
 
-	return (nil);
+	OCLogDebug(@"##### Enumerator request for %@: returned %@/%@", containerItemIdentifier, enumerator, ((error != NULL) ? *error : nil));
+
+	return (enumerator);
 
 	// ### Apple template comments: ###
 
@@ -946,6 +1055,8 @@
 {
 	FileProviderExtensionThumbnailRequest *thumbnailRequest;
 
+	OCTLogDebug(@[@"FPThumbs"], @"request thumbnails sized %@ for identifiers %@", NSStringFromCGSize(size), OCLogPrivate(itemIdentifiers));
+
 	if ((thumbnailRequest = [FileProviderExtensionThumbnailRequest new]) != nil)
 	{
 		if (size.width > 256)
@@ -966,9 +1077,11 @@
 		thumbnailRequest.progress = [NSProgress progressWithTotalUnitCount:itemIdentifiers.count];
 
 		[thumbnailRequest requestNextThumbnail];
+
+		return (thumbnailRequest.progress);
 	}
 
-	return (thumbnailRequest.progress);
+	return (NSProgress.indeterminateProgress);
 }
 
 #pragma mark - Services
@@ -1042,7 +1155,7 @@
 
 - (OCCore *)coreWithError:(NSError **)outError
 {
-	OCLogDebug(@"FileProviderExtension[%p].core[enter]: _core=%p, bookmark=%@", self, _core, self.bookmark);
+	OCLogVerbose(@"FileProviderExtension[%p].core[enter]: _core=%p, bookmark=%@", self, _core, self.bookmark);
 
 	OCBookmark *bookmark = self.bookmark;
 	__block OCCore *retCore = nil;
@@ -1126,7 +1239,7 @@
 		*outError = retError;
 	}
 
-	OCLogDebug(@"FileProviderExtension[%p].core[leave]: _core=%p, bookmark=%@", self, retCore, bookmark);
+	OCLogVerbose(@"FileProviderExtension[%p].core[leave]: _core=%p, bookmark=%@", self, retCore, bookmark);
 
 	return (retCore);
 
@@ -1178,18 +1291,18 @@
 
 				OCBookmark *bookmark;
 
-				content.title = OCLocalized(@"Authorization failed");
+				content.title = OCLocalizedString(@"Authorization failed", nil);
 
 				if ((OCBookmarkManager.sharedBookmarkManager.bookmarks.count > 1) &&
 				    (((bookmark = core.bookmark) != nil) &&
 				     (bookmark.shortName != nil))
 				   )
 				{
-					content.body = [NSString stringWithFormat:OCLocalized(@"Log into your account %@ in the app for more details."), bookmark.shortName];
+					content.body = [NSString stringWithFormat:OCLocalizedString(@"Log into your account %@ in the app for more details.", nil), bookmark.shortName];
 				}
 				else
 				{
-					content.body = OCLocalized(@"Log into your account in the app for more details.");
+					content.body = OCLocalizedString(@"Log into your account in the app for more details.", nil);
 				}
 
 				UNNotificationRequest *request;
@@ -1253,7 +1366,6 @@
 @end
 
 OCClaimExplicitIdentifier OCClaimExplicitIdentifierFileProvider = @"fileProvider";
-OCClassSettingsIdentifier OCClassSettingsIdentifierFileProvider = @"file-provider";
 OCClassSettingsKey OCClassSettingsKeyFileProviderSkipLocalErrorChecks = @"skip-local-error-checks";
 
 /*

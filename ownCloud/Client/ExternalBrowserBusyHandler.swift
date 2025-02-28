@@ -31,9 +31,7 @@ class ExternalBrowserBusyHandler: UIViewController, Themeable {
 			}
 
 			viewController.cancelHandler = cancelHandler
-			if #available(iOS 13.0, *) {
-				viewController.isModalInPresentation = true
-			}
+			viewController.isModalInPresentation = true
 
 			hostViewController?.present(viewController, animated: true, completion: nil)
 
@@ -43,21 +41,21 @@ class ExternalBrowserBusyHandler: UIViewController, Themeable {
 		}
 	}
 
-	var infoLabel = UILabel()
-	var cancelButton = ThemeButton(type: .custom)
+	var infoLabel = ThemeCSSLabel(withSelectors: [.secondary])
+	var cancelButton = ThemeButton(withSelectors: [.cancel])
 
 	var cancelHandler : (() -> Void)?
 
 	override func loadView() {
 		let backgroundView = UIView()
-		let activityIndicator = UIActivityIndicatorView(style: Theme.shared.activeCollection.activityIndicatorViewStyle)
+		let activityIndicator = UIActivityIndicatorView(style: Theme.shared.activeCollection.css.getActivityIndicatorStyle() ?? .medium)
 		activityIndicator.translatesAutoresizingMaskIntoConstraints = false
 		activityIndicator.startAnimating()
 
 		backgroundView.addSubview(activityIndicator)
 
 		cancelButton.translatesAutoresizingMaskIntoConstraints = false
-		cancelButton.setTitle("Cancel".localized, for: .normal)
+		cancelButton.setTitle(OCLocalizedString("Cancel", nil), for: .normal)
 		cancelButton.addTarget(self, action: #selector(ExternalBrowserBusyHandler.cancel), for: UIControl.Event.touchUpInside)
 		backgroundView.addSubview(cancelButton)
 
@@ -65,7 +63,7 @@ class ExternalBrowserBusyHandler: UIViewController, Themeable {
 		infoLabel.adjustsFontForContentSizeCategory = true
 		infoLabel.textAlignment = .center
 		infoLabel.font = UIFont.preferredFont(forTextStyle: .body)
-		infoLabel.text = "Waiting for response from login session in external browser…".localized
+		infoLabel.text = OCLocalizedString("Waiting for response from login session in external browser…", nil)
 		infoLabel.numberOfLines = 0
 		infoLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 		infoLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -89,13 +87,17 @@ class ExternalBrowserBusyHandler: UIViewController, Themeable {
 		view = backgroundView
 	}
 
-	override func viewDidLoad() {
-		Theme.shared.register(client: self)
+	private var themeRegistered = false
+	override func viewWillAppear(_ animated: Bool) {
+		super.viewWillAppear(animated)
+		if !themeRegistered {
+			themeRegistered = true
+			Theme.shared.register(client: self)
+		}
 	}
 
 	func applyThemeCollection(theme: Theme, collection: ThemeCollection, event: ThemeEvent) {
-		view.backgroundColor = collection.tableBackgroundColor
-		infoLabel.textColor = collection.tableRowColors.secondaryLabelColor
+		view.backgroundColor = collection.css.getColor(.fill, selectors: [.table], for: view)
 	}
 
 	@objc func cancel() {

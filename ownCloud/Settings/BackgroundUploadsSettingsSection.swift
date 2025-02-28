@@ -70,42 +70,29 @@ class BackgroundUploadsSettingsSection: SettingsSection {
 
 	override init(userDefaults: UserDefaults) {
 		super.init(userDefaults: userDefaults)
-		self.headerTitle = "Background uploads (Lab Version)".localized
+		self.headerTitle = OCLocalizedString("Background uploads (Lab Version)", nil)
 
 		// Add option for iOS13 to use BackgroundTasks framework for background uploads
-		if #available(iOS 13, *) {
-			backgroundUploadsRow = StaticTableViewRow(switchWithAction: { (_, sender) in
-				if let enableSwitch = sender as? UISwitch {
-					userDefaults.backgroundMediaUploadsEnabled = enableSwitch.isOn
-				}
-			}, title: "Use background refresh".localized, subtitle: "Allow this app to refresh the content when on Wi-Fi or mobile network in background.".localized, value: self.userDefaults.backgroundMediaUploadsEnabled, identifier: "background-refresh")
+		backgroundUploadsRow = StaticTableViewRow(switchWithAction: { (_, sender) in
+			if let enableSwitch = sender as? UISwitch {
+				userDefaults.backgroundMediaUploadsEnabled = enableSwitch.isOn
+			}
+		}, title: OCLocalizedString("Use background refresh", nil), subtitle: OCLocalizedString("Allow this app to refresh the content when on Wi-Fi or mobile network in background.", nil), value: self.userDefaults.backgroundMediaUploadsEnabled, identifier: "background-refresh")
 
-			self.add(row: backgroundUploadsRow!)
-		}
+		self.add(row: backgroundUploadsRow!)
 
 		// Add option to enable background location updates which will trigger background media uploads
 		#if !DISABLE_BACKGROUND_LOCATION
 		var locationServicesRowTitle: String = ""
-		if #available(iOS 13, *) {
-			locationServicesRowTitle = "Use background location updates".localized
-		} else {
-			locationServicesRowTitle = "Enable background uploads".localized
-		}
+		locationServicesRowTitle = OCLocalizedString("Use background location updates", nil)
 
 		// Add section footer with detailed explanations
 		var locationServicesRowSubtitle = ""
-		if #available(iOS 13, *) {
-			locationServicesRowSubtitle += "If you would like background media uploads to be more reliable, you should enable background location updates.".localized
-		} else {
-			locationServicesRowSubtitle += "Background media uploads rely on location updates and will stop working if location acquisition permissions are revoked.".localized
-		}
+		locationServicesRowSubtitle += OCLocalizedString("If you would like background media uploads to be more reliable, you should enable background location updates.", nil)
+		locationServicesRowSubtitle += " "
+		locationServicesRowSubtitle += OCLocalizedString("Otherwise background media uploads using background refresh technology would depend on how frequently you use the app.", nil)
 
-		if #available(iOS 13, *) {
-			locationServicesRowSubtitle += " "
-			locationServicesRowSubtitle += "Otherwise background media uploads using background refresh technology would depend on how frequently you use the app.".localized
-		}
-
-		let currentAuthStatus = CLLocationManager.authorizationStatus() == .authorizedAlways
+		let currentAuthStatus = CLLocationManager().authorizationStatus == .authorizedAlways
 		backgroundLocationRow = StaticTableViewRow(switchWithAction: { (_, sender) in
 			if let enableSwitch = sender as? UISwitch {
 				if enableSwitch.isOn {
@@ -124,33 +111,31 @@ class BackgroundUploadsSettingsSection: SettingsSection {
 		#endif /* !DISABLE_BACKGROUND_LOCATION */
 
 		// Add option to enable local notifications reporting that some number of media files got enqueued for upload
-		if #available(iOS 13, *) {
-			notificationsRow = StaticTableViewRow(switchWithAction: { (_, sender) in
-				if let enableSwitch = sender as? UISwitch {
-					if enableSwitch.isOn {
-						// Request authorization for notifications
-						NotificationManager.shared.getNotificationSettings(completionHandler: { (settings) in
-							if settings.authorizationStatus == .notDetermined {
-								NotificationManager.shared.requestAuthorization(options: [.alert]) { (granted, _) in
-									OnMainThread {
-										enableSwitch.isOn = granted
-										userDefaults.backgroundMediaUploadsNotificationsEnabled = granted
-									}
+		notificationsRow = StaticTableViewRow(switchWithAction: { (_, sender) in
+			if let enableSwitch = sender as? UISwitch {
+				if enableSwitch.isOn {
+					// Request authorization for notifications
+					NotificationManager.shared.getNotificationSettings(completionHandler: { (settings) in
+						if settings.authorizationStatus == .notDetermined {
+							NotificationManager.shared.requestAuthorization(options: [.alert]) { (granted, _) in
+								OnMainThread {
+									enableSwitch.isOn = granted
+									userDefaults.backgroundMediaUploadsNotificationsEnabled = granted
 								}
-							} else if settings.authorizationStatus == .authorized {
-								userDefaults.backgroundMediaUploadsNotificationsEnabled = true
-							} else {
-								userDefaults.backgroundMediaUploadsNotificationsEnabled = false
 							}
-						})
-					} else {
-						userDefaults.backgroundMediaUploadsNotificationsEnabled = false
-					}
+						} else if settings.authorizationStatus == .authorized {
+							userDefaults.backgroundMediaUploadsNotificationsEnabled = true
+						} else {
+							userDefaults.backgroundMediaUploadsNotificationsEnabled = false
+						}
+					})
+				} else {
+					userDefaults.backgroundMediaUploadsNotificationsEnabled = false
 				}
-				}, title: "Background upload notifications".localized, value: userDefaults.backgroundMediaUploadsNotificationsEnabled, identifier: "background-upload-notifications")
+			}
+			}, title: OCLocalizedString("Background upload notifications", nil), value: userDefaults.backgroundMediaUploadsNotificationsEnabled, identifier: "background-upload-notifications")
 
-			self.add(row: notificationsRow!)
-		}
+		self.add(row: notificationsRow!)
 
 		// Update notifications option
 		NotificationManager.shared.getNotificationSettings(completionHandler: { (settings) in
@@ -170,8 +155,8 @@ class BackgroundUploadsSettingsSection: SettingsSection {
 	}
 
 	private func showLocationDisabledAlert() {
-		let alertController = ThemedAlertController(with: "Location permission denied".localized,
-												message: "Please re-enable location acquisition in system settings".localized)
+		let alertController = ThemedAlertController(with: OCLocalizedString("Location permission denied", nil),
+												message: OCLocalizedString("Please re-enable location acquisition in system settings", nil))
 		self.viewController?.present(alertController, animated: true, completion: nil)
 	}
 

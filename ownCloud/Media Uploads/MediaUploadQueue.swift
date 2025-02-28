@@ -52,8 +52,8 @@ class MediaUploadQueue : OCActivitySource {
 	// MARK: - Public interface
 
 	func setup() {
-		let photoCellularSwitch = OCCellularSwitch(identifier: .photoUploadCellularSwitchIdentifier, localizedName: "Photo upload".localized, defaultValue: true, maximumTransferSize: 0)
-		let videoCellularSwitch = OCCellularSwitch(identifier: .videoUploadCellularSwitchIdentifier, localizedName: "Video upload".localized, defaultValue: true, maximumTransferSize: 0)
+		let photoCellularSwitch = OCCellularSwitch(identifier: .photoUploadCellularSwitchIdentifier, localizedName: OCLocalizedString("Photo upload", nil), defaultValue: true, maximumTransferSize: 0)
+		let videoCellularSwitch = OCCellularSwitch(identifier: .videoUploadCellularSwitchIdentifier, localizedName: OCLocalizedString("Video upload", nil), defaultValue: true, maximumTransferSize: 0)
 
 		OCCellularManager.shared.registerSwitch(photoCellularSwitch)
 		OCCellularManager.shared.registerSwitch(videoCellularSwitch)
@@ -70,20 +70,20 @@ class MediaUploadQueue : OCActivitySource {
 		importQueue.maxConcurrentOperationCount = maxConcurrentOperationCount
 	}
 
-	func addUpload(_ asset:PHAsset, for bookmark:OCBookmark, at path:String) {
+	func addUpload(_ asset:PHAsset, for bookmark:OCBookmark, at targetLocation: OCLocation) {
 
 		bookmark.modifyMediaUploadStorage { (storage) -> MediaUploadStorage in
-			storage.addJob(with: asset.localIdentifier, targetPath: path)
+			storage.addJob(with: asset.localIdentifier, targetLocation: targetLocation)
 			return storage
 		}
 
 		self.setNeedsScheduling(in: bookmark)
 	}
 
-	func addUploads(_ assets:[PHAsset], for bookmark:OCBookmark, at path:String) {
+	func addUploads(_ assets:[PHAsset], for bookmark:OCBookmark, at targetLocation: OCLocation) {
 		bookmark.modifyMediaUploadStorage { (storage) -> MediaUploadStorage in
 			for asset in assets {
-				storage.addJob(with: asset.localIdentifier, targetPath: path)
+				storage.addJob(with: asset.localIdentifier, targetLocation: targetLocation)
 			}
 			return storage
 		}

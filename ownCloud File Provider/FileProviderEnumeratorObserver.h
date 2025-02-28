@@ -28,6 +28,9 @@
 
 @property(strong) id<NSFileProviderChangeObserver> changeObserver;
 @property(strong) NSFileProviderSyncAnchor changesFromSyncAnchor;
-@property(strong) OCQuery *changeQuery;
+
+@property(copy) dispatch_block_t enumerationCompletionHandler;
+
+- (void)completeEnumeration;
 
 @end

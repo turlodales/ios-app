@@ -19,6 +19,7 @@
 import Foundation
 import UIKit
 import ownCloudSDK
+import ownCloudApp
 
 private let _sharedAppBundle = Bundle(identifier: "com.owncloud.ownCloudAppShared")
 
@@ -29,14 +30,6 @@ public extension Bundle {
 }
 
 extension String {
-
-	public var localized: String {
-		return OCLocale.localize(self)
-	}
-
-	public func localized(_ replacements: [ String : String ]) -> String {
-		return OCLocale.localize(self, options: [OCLocaleOptionKeyVariables : replacements])
-	}
 
 	public var isNumeric: Bool {
 		let nonDigitsCharacterSet = CharacterSet.decimalDigits.inverted
@@ -61,8 +54,8 @@ extension String {
 			let regex = try NSRegularExpression(pattern: regex)
 			let results = regex.matches(in: self,
 										range: NSRange(self.startIndex..., in: self))
-			return results.map {
-				String(self[Range($0.range, in: self)!])
+			return results.map { result in
+				String(self[Range(result.range, in: self)!])
 			}
 		} catch _ {
 			return []
@@ -81,5 +74,17 @@ extension String {
 		let boundingBox = self.boundingRect(with: constraintRect, options: .usesLineFragmentOrigin, attributes: [.font: font], context: nil)
 
 		return ceil(boundingBox.width)
+	}
+	
+	/// Redacts the string with a specified character.
+	/// - Parameter replacement: The character to use for redaction (default is `•`).
+	/// - Returns: A new string where each character is replaced with the redaction character.
+	public func redacted(after visibleCount: Int = 3, with replacement: Character = "•") -> String {
+		guard ConfidentialManager.shared.markConfidentialViews else { return self }
+		
+		guard self.count > visibleCount else { return self }
+		let visiblePart = self.prefix(visibleCount) // First `visibleCount` characters
+		let redactedPart = String(repeating: replacement, count: self.count - visibleCount)
+		return visiblePart + redactedPart
 	}
 }

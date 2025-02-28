@@ -29,15 +29,25 @@ class DocumentActionViewController: FPUIActionExtensionViewController {
 	var themeNavigationController : ThemeNavigationController?
 
 	enum ActionExtensionType {
-		case undefined, sharing, links
+		case undefined, sharing
 	}
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
 
-		OCItem.registerIcons()
 		ThemeStyle.registerDefaultStyles()
-		Theme.shared.activeCollection = ThemeCollection(with: ThemeStyle.preferredStyle)
+
+		// Initially apply theme based on light / dark mode
+		ThemeStyle.considerAppearanceUpdate()
+
+		self.cssSelector = .modal
+
+		CollectionViewCellProvider.registerStandardImplementations()
+		CollectionViewSupplementaryCellProvider.registerStandardImplementations()
+
+		OCHTTPPipelineManager.setupPersistentPipelines() // Set up HTTP pipelines
+
+		OCItem.registerIcons()
 	}
 
 	func complete(cancelWith error: Error? = nil) {
@@ -61,38 +71,52 @@ class DocumentActionViewController: FPUIActionExtensionViewController {
 		}
 	}
 
-	override func prepare(forAction actionIdentifier: String, itemIdentifiers: [NSFileProviderItemIdentifier]) {
+	func prepareNavigationController() {
+		if themeNavigationController == nil {
+			themeNavigationController = ThemeNavigationController()
+			if let themeNavigationController = themeNavigationController {
+				view.addSubview(themeNavigationController.view)
+				addChild(themeNavigationController)
+			}
+		}
+	}
 
-		guard let identifier = itemIdentifiers.first else {
+	override func prepare(forAction actionIdentifier: String, itemIdentifiers: [NSFileProviderItemIdentifier]) {
+		guard let vfsIdentifier = itemIdentifiers.first else {
+			complete(cancelWith: NSError(domain: FPUIErrorDomain, code: Int(FPUIExtensionErrorCode.userCancelled.rawValue), userInfo: nil))
+			return
+		}
+
+		var identifier: NSFileProviderItemIdentifier?
+
+		if let vaultLocation = OCVaultLocation(vfsItemID: OCVFSItemID(rawValue: vfsIdentifier.rawValue)), let localID = vaultLocation.localID {
+			identifier = NSFileProviderItemIdentifier(rawValue: localID)
+		} else {
+			identifier = vfsIdentifier
+		}
+
+		guard let identifier else {
 			complete(cancelWith: NSError(domain: FPUIErrorDomain, code: Int(FPUIExtensionErrorCode.userCancelled.rawValue), userInfo: nil))
 			return
 		}
 
 		let collection = Theme.shared.activeCollection
-		self.view.backgroundColor = collection.toolbarColors.backgroundColor
+		view.backgroundColor = collection.css.getColor(.fill, selectors: [.toolbar], for: view)
 
-		themeNavigationController = ThemeNavigationController()
-		if let themeNavigationController = themeNavigationController {
-			view.addSubview(themeNavigationController.view)
-			addChild(themeNavigationController)
-		}
+		prepareNavigationController()
 
-		showCancelLabel(with: "Connecting…".localized)
+		showMessage(with: OCLocalizedString("Connecting…", nil))
 
 		var actionTypeLabel = ""
 		var actionExtensionType : ActionExtensionType = .undefined
 		if actionIdentifier == "com.owncloud.FileProviderUI.Share" {
 			actionExtensionType = .sharing
-			actionTypeLabel = "Share with user/group".localized
-		} else if actionIdentifier == "com.owncloud.FileProviderUI.PublicLinks" {
-			actionExtensionType = .links
-			actionTypeLabel = "Share link".localized
+			actionTypeLabel = OCLocalizedString("Share", nil)
 		}
 
 		OCCoreManager.shared.requestCoreForBookmarkWithItem(withLocalID: identifier.rawValue, setup: nil) { [weak self] (error, core, databaseItem) in
 			guard let self = self else {
 				// DocumentActionViewController vanished - and .complete() with it - return core immediately
-
 				if let bookmark = core?.bookmark {
 					OCCoreManager.shared.returnCore(for: bookmark, completionHandler: nil)
 				}
@@ -107,41 +131,43 @@ class DocumentActionViewController: FPUIActionExtensionViewController {
 				guard let core = self.core else { return }
 				var triedConnecting = false
 
+				core.vault.resourceManager?.add(ResourceSourceItemIcons(core: core))
+
 				self.coreConnectionStatusObservation = core.observe(\OCCore.connectionStatus, options: [.initial, .new]) { [weak self] (_, _) in
 					guard let self = self else { return }
 
 					OnMainThread {
-						if actionExtensionType == .links, core.connection.capabilities?.sharingAPIEnabled == false, core.connection.capabilities?.publicSharingEnabled == false, item.isShareable == false {
-							self.showCancelLabel(with: String(format: "%@ is not available for this item.".localized, actionTypeLabel))
-						} else if actionExtensionType == .sharing, core.connection.capabilities?.sharingAPIEnabled == false {
-							self.showCancelLabel(with: String(format: "%@ is not available for this item.".localized, actionTypeLabel))
+						if actionExtensionType == .sharing, core.connection.capabilities?.sharingAPIEnabled == false || item.isShareable == false {
+							self.showMessage(with: String(format: OCLocalizedString("%@ is not available for this item.", nil), actionTypeLabel))
 						} else if core.connectionStatus == .online {
 							self.coreConnectionStatusObservation?.invalidate()
 							self.coreConnectionStatusObservation = nil
 
 							if actionExtensionType == .sharing {
-								let groupSharingController = GroupSharingTableViewController(core: core, item: item)
-								groupSharingController.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(self.dismissView))
-								self.themeNavigationController?.viewControllers = [groupSharingController]
-							} else if actionExtensionType == .links {
-								let publicLinkController = PublicLinkTableViewController(core: core, item: item)
-								publicLinkController.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(self.dismissView))
-								self.themeNavigationController?.viewControllers = [publicLinkController]
+								let clientContext = ClientContext(core: core)
+
+								let sharingViewController = SharingViewController(clientContext: clientContext, item: item)
+								sharingViewController.navigationItem.navigationContent.add(items: [
+									NavigationContentItem(identifier: "done", area: .right, priority: .standard, position: .trailing, items: [
+										UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(self.dismissView))
+									])
+								])
+								self.themeNavigationController?.viewControllers = [sharingViewController]
 							}
 						} else if core.connectionStatus == .connecting {
 							triedConnecting = true
-							self.showCancelLabel(with: "Connecting…".localized)
+							self.showMessage(with: OCLocalizedString("Connecting…", nil))
 						} else if core.connectionStatus == .offline || core.connectionStatus == .unavailable {
 							// Display error if `.connecting` isn't reached within 2 seconds
 							OnMainThread(after: 2) {
 								if !triedConnecting {
-									self.showCancelLabel(with: String(format: "%@ is not available, when this account is offline. Please open the app and log into your account before you can do this action.".localized, actionTypeLabel))
+									self.showMessage(with: String(format: OCLocalizedString("%@ is not available, when this account is offline. Please open the app and log into your account before you can do this action.", nil), actionTypeLabel))
 								}
 							}
 
 							// Display error if `.connecting` has already been reached
 							if triedConnecting {
-								self.showCancelLabel(with: String(format: "%@ is not available, when this account is offline. Please open the app and log into your account before you can do this action.".localized, actionTypeLabel))
+								self.showMessage(with: String(format: OCLocalizedString("%@ is not available, when this account is offline. Please open the app and log into your account before you can do this action.", nil), actionTypeLabel))
 							}
 						}
 					}
@@ -151,9 +177,26 @@ class DocumentActionViewController: FPUIActionExtensionViewController {
 	}
 
 	override func prepare(forError error: Error) {
+		if !OCFileProviderSettings.browseable {
+			prepareNavigationController()
+			showMessage(with: OCLocalizedString("File Provider access has been disabled by the administrator.\n\nPlease use the app to access your files.", nil))
+			return
+		}
+
+		if OCBookmarkManager.shared.bookmarks.count == 0 {
+			prepareNavigationController()
+			showMessage(with: OCLocalizedString("No account has been set up in the {{app.name}} app yet.", nil), buttonLabel: OCLocalizedString("Open app", nil), action: { [weak self] in
+				if let appURLScheme = OCAppIdentity.shared.appURLSchemes?.first {
+					self?.extensionContext.open(URL(string: "\(appURLScheme)://fp-no-account")!)
+				}
+				self?.complete()
+			})
+			return
+		}
+
 		if AppLockManager.supportedOnDevice {
 			AppLockManager.shared.passwordViewHostViewController = self
-			AppLockManager.shared.biometricCancelLabel = "Cancel".localized
+			AppLockManager.shared.biometricCancelLabel = OCLocalizedString("Cancel", nil)
 			AppLockManager.shared.cancelAction = { [weak self] in
 				self?.complete(cancelWith: NSError(domain: FPUIErrorDomain, code: Int(FPUIExtensionErrorCode.userCancelled.rawValue), userInfo: nil))
 			}
@@ -163,30 +206,36 @@ class DocumentActionViewController: FPUIActionExtensionViewController {
 
 			AppLockManager.shared.showLockscreenIfNeeded()
 		} else {
-			showCancelLabel(with: "Passcode protection is not supported on this device.\nPlease disable passcode lock in the app settings.".localized)
+			prepareNavigationController()
+			showMessage(with: OCLocalizedString("Passcode protection is not supported on this device.\nPlease disable passcode lock in the app settings.", nil))
 		}
 	}
 
-	func showCancelLabel(with message: String) {
+	func showMessage(with message: String, buttonLabel: String? = nil, action: CancelLabelViewController.CancelAction? = nil) {
 		OnMainThread {
+			var messageController: CancelLabelViewController?
+
 			if let currentController = self.themeNavigationController?.viewControllers.first as? CancelLabelViewController {
-				currentController.updateCancelLabels(with: message)
+				messageController = currentController
 			} else if let cancelLabelViewController = UIStoryboard.init(name: "MainInterface", bundle: nil).instantiateViewController(withIdentifier: "CancelLabelViewController") as? CancelLabelViewController {
-				cancelLabelViewController.updateCancelLabels(with: message)
-				cancelLabelViewController.cancelAction = { [weak self] in
+				messageController = cancelLabelViewController
+			}
+
+			if let messageController {
+				messageController.updateCancelLabels(with: message, buttonLabel: buttonLabel)
+				messageController.cancelAction = action ?? { [weak self] in
 					self?.complete(cancelWith: NSError(domain: FPUIErrorDomain, code: Int(FPUIExtensionErrorCode.userCancelled.rawValue), userInfo: nil))
 				}
-				self.themeNavigationController?.viewControllers = [ cancelLabelViewController ]
+
+				if self.themeNavigationController?.viewControllers.first != messageController {
+					self.themeNavigationController?.viewControllers = [ messageController ]
+				}
 			}
 		}
 	}
 
 	@objc func dismissView() {
-		if #available(iOS 13.0, *) {
-			self.dismiss(animated: true) {
-				self.complete()
-			}
-		} else {
+		self.dismiss(animated: true) {
 			self.complete()
 		}
 	}

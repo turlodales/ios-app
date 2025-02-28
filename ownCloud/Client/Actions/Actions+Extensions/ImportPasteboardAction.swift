@@ -7,19 +7,20 @@
 //
 
 /*
-* Copyright (C) 2019, ownCloud GmbH.
-*
-* This code is covered by the GNU Public License Version 3.
-*
-* For distribution utilizing Apple mechanisms please see https://owncloud.org/contribute/iOS-license-exception/
-* You should have received a copy of this license along with this program. If not, see <http://www.gnu.org/licenses/gpl-3.0.en.html>.
-*
-*/
+ * Copyright (C) 2019, ownCloud GmbH.
+ *
+ * This code is covered by the GNU Public License Version 3.
+ *
+ * For distribution utilizing Apple mechanisms please see https://owncloud.org/contribute/iOS-license-exception/
+ * You should have received a copy of this license along with this program. If not, see <http://www.gnu.org/licenses/gpl-3.0.en.html>.
+ *
+ */
 
 import Foundation
 import ownCloudSDK
 import MobileCoreServices
 import ownCloudAppShared
+import UniformTypeIdentifiers
 
 extension String {
 	func trimIllegalCharacters() -> String {
@@ -34,8 +35,8 @@ extension String {
 class ImportPasteboardAction : Action {
 	override class var identifier : OCExtensionIdentifier? { return OCExtensionIdentifier("com.owncloud.action.importpasteboard") }
 	override class var category : ActionCategory? { return .normal }
-	override class var name : String? { return "Paste".localized }
-	override class var locations : [OCExtensionLocationIdentifier]? { return [.moreFolder, .keyboardShortcut] }
+	override class var name : String? { return OCLocalizedString("Paste", nil) }
+	override class var locations : [OCExtensionLocationIdentifier]? { return [.moreFolder, .keyboardShortcut, .emptyFolder] }
 	override class var keyCommand : String? { return "V" }
 	override class var keyModifierFlags: UIKeyModifierFlags? { return [.command] }
 
@@ -46,6 +47,12 @@ class ImportPasteboardAction : Action {
 	// MARK: - Extension matching
 	override class func applicablePosition(forContext: ActionContext) -> ActionPosition {
 		let pasteboard = UIPasteboard.general
+
+		if forContext.items.first?.permissions.contains(.createFolder) == false ||
+		   forContext.items.first?.permissions.contains(.createFile) == false {
+			return .none
+		}
+
 		if pasteboard.numberOfItems > 0 {
 			return .afterMiddle
 		}
@@ -57,10 +64,14 @@ class ImportPasteboardAction : Action {
 	override func run() {
 		var importToRootItem : OCItem?
 
-		if let root = context.query?.rootItem {
+		if let root = context.rootItem {
 			importToRootItem = root
 		} else if let root = context.preferences?["rootItem"] as? OCItem { // KeyCommands send the rootItem via Preferences, because if a table view cell is selected, we need the folder root item
 			importToRootItem = root
+		}
+
+		if importToRootItem == nil, context.items.count == 1 {
+			importToRootItem = context.items.first
 		}
 
 		guard context.items.count > 0, let core = self.core, let rootItem = importToRootItem else {
@@ -70,16 +81,20 @@ class ImportPasteboardAction : Action {
 		let generalPasteboard = UIPasteboard.general
 
 		if generalPasteboard.contains(pasteboardTypes: [ImportPasteboardAction.InternalPasteboardCopyKey, ImportPasteboardAction.InternalPasteboardCutKey]) {
-
+			// Internal pasteboard items
 			for item in generalPasteboard.itemProviders {
 				// Copy Items Internally
 				item.loadDataRepresentation(forTypeIdentifier: ImportPasteboardAction.InternalPasteboardCopyKey, completionHandler: { data, error in
-					if let data = data, let object = OCItemPasteboardValue(data: data) {
-							let item = object.item
-							let bookmarkUUID = object.bookmarkUUID
-						guard let name = item.name else { return }
+					if let data, let object = OCItemPasteboardValue.decode(data: data) {
+						guard let bookmarkUUID = object.bookmarkUUID,
+						      let item = object.item,
+						      let name = item.name
+						else {
+							return
+						}
 
 						if core.bookmark.uuid.uuidString == bookmarkUUID {
+							// Copy within account
 							core.copy(item, to: rootItem, withName: name, options: nil, resultHandler: { (error, _, _, _) in
 								if error != nil {
 									self.completed(with: error)
@@ -89,89 +104,112 @@ class ImportPasteboardAction : Action {
 							// Move between Accounts
 							guard let sourceBookmark = OCBookmarkManager.shared.bookmark(forUUIDString: bookmarkUUID), let destinationItem = self.context.items.first else {return }
 
-								OCCoreManager.shared.requestCore(for: sourceBookmark, setup: nil) { (srcCore, error) in
-									if error == nil {
-										srcCore?.downloadItem(item, options: nil, resultHandler: { (error, _, srcItem, _) in
-											if error == nil, let srcItem = srcItem, let localURL = srcCore?.localCopy(of: srcItem) {
-												core.importItemNamed(srcItem.name, at: destinationItem, from: localURL, isSecurityScoped: false, options: nil, placeholderCompletionHandler: nil) { (_, _, _, _) in
-												}
-											}
-										})
-									}
+							// Request core from source account
+							OCCoreManager.shared.requestCore(for: sourceBookmark, setup: nil) { (srcCore, error) in
+								if error == nil {
+									// Download file from source account
+									srcCore?.downloadItem(item, options: nil, resultHandler: { (error, _, srcItem, _) in
+										if error == nil, let srcItem, let localURL = srcCore?.localCopy(of: srcItem) {
+											// Import local copy of file from source account
+											core.importItemNamed(srcItem.name, at: destinationItem, from: localURL, isSecurityScoped: false, options: nil, placeholderCompletionHandler: nil, resultHandler: { err, core, item, parameter in
+												// Release core of source account
+												OCCoreManager.shared.returnCore(for: sourceBookmark)
+											})
+										} else {
+											// Release core of source account
+											OCCoreManager.shared.returnCore(for: sourceBookmark)
+										}
+									})
 								}
+							}
 						}
 					}
 				})
 
 				// Cut Item Internally
 				item.loadDataRepresentation(forTypeIdentifier: ImportPasteboardAction.InternalPasteboardCutKey, completionHandler: { data, error in
-					if let data = data, let object = OCItemPasteboardValue(data: data) {
-
-							let item = object.item
-							let bookmarkUUID = object.bookmarkUUID
-						guard let name = item.name else { return }
+					if let data, let object = OCItemPasteboardValue.decode(data: data) {
+						guard let bookmarkUUID = object.bookmarkUUID,
+						      let item = object.item,
+						      let name = item.name
+						else {
+							return
+						}
 
 						if core.bookmark.uuid.uuidString == bookmarkUUID {
+							// Move within same account
 							core.move(item, to: rootItem, withName: name, options: nil) { (error, _, _, _) in
-						  if error != nil {
-							  self.completed(with: error)
-						  } else {
-							generalPasteboard.items = []
-						  }
-					  }
+								if error != nil {
+									self.completed(with: error)
+								} else {
+									generalPasteboard.items = []
+								}
+							}
 						} else {
 							// Move between Accounts
 							guard let sourceBookmark = OCBookmarkManager.shared.bookmark(forUUIDString: bookmarkUUID), let destinationItem = self.context.items.first else {return }
 
-								OCCoreManager.shared.requestCore(for: sourceBookmark, setup: nil) { (srcCore, error) in
-									if error == nil {
-										srcCore?.downloadItem(item, options: nil, resultHandler: { (error, _, srcItem, _) in
-											if error == nil, let srcItem = srcItem, let localURL = srcCore?.localCopy(of: srcItem) {
-												core.importItemNamed(srcItem.name, at: destinationItem, from: localURL, isSecurityScoped: false, options: nil, placeholderCompletionHandler: nil) { (_, _, _, _) in
-
+							// Request a core from the source account
+							OCCoreManager.shared.requestCore(for: sourceBookmark, setup: nil) { (srcCore, error) in
+								if error == nil {
+									// Download item from source account
+									srcCore?.downloadItem(item, options: nil, resultHandler: { (error, _, srcItem, _) in
+										if error == nil, let srcItem, let localURL = srcCore?.localCopy(of: srcItem) {
+											// Import file into destination account
+											core.importItemNamed(srcItem.name, at: destinationItem, from: localURL, isSecurityScoped: false, options: nil, placeholderCompletionHandler: nil) {  err, core, importedItem, parameter in
+												if err == nil {
+													// Delete file from source account
 													srcCore?.delete(srcItem, requireMatch: true, resultHandler: { (error, _, _, _) in
-													   if error != nil {
-														   Log.log("Error \(String(describing: error)) deleting \(String(describing: item.path))")
-													} else {
+														if error != nil {
+															Log.log("Error \(String(describing: error)) deleting \(String(describing: srcItem.path))")
+														} else {
+															generalPasteboard.items = []
+														}
 
-														generalPasteboard.items = []
-													}
-												   })
+														// Return source account core
+														OCCoreManager.shared.returnCore(for: sourceBookmark)
+													})
+												} else {
+													// Return source account core
+													OCCoreManager.shared.returnCore(for: sourceBookmark)
 												}
 											}
-										})
-									}
+										} else {
+											// Return source account core
+											OCCoreManager.shared.returnCore(for: sourceBookmark)
+										}
+									})
 								}
+							}
 						}
 					}
 				})
 			}
 		} else {
 			// System-wide Pasteboard Items
-
 			for item in generalPasteboard.itemProviders {
 				let typeIdentifiers = item.registeredTypeIdentifiers
 				let preferredUTIs = [
-					kUTTypeImage,
-					kUTTypeMovie,
-					kUTTypePDF,
-					kUTTypeText,
-					kUTTypeRTF,
-					kUTTypeHTML,
-					kUTTypePlainText
+					UTType.image,
+					UTType.movie,
+					UTType.pdf,
+					UTType.text,
+					UTType.rtf,
+					UTType.html,
+					UTType.plainText
 				]
 				var useUTI : String?
 				var useIndex : Int = Int.max
 
 				for typeIdentifier in typeIdentifiers {
-					if !typeIdentifier.hasPrefix("dyn.") {
+					if !typeIdentifier.hasPrefix("dyn."), let typeIdentifierUTI = UTType(typeIdentifier) {
 						for preferredUTI in preferredUTIs {
-							let conforms = UTTypeConformsTo(typeIdentifier as CFString, preferredUTI)
+							let conforms = typeIdentifierUTI.conforms(to: preferredUTI)
 
 							// Log.log("\(preferredUTI) vs \(typeIdentifier) -> \(conforms)")
 
 							if conforms {
-								if let utiIndex = preferredUTIs.index(of: preferredUTI), utiIndex < useIndex {
+								if let utiIndex = preferredUTIs.firstIndex(of: preferredUTI), utiIndex < useIndex {
 									useUTI = typeIdentifier
 									useIndex = utiIndex
 								}
@@ -185,21 +223,22 @@ class ImportPasteboardAction : Action {
 				}
 
 				if useUTI == nil {
-					useUTI = kUTTypeData as String
+					useUTI = UTType.data.identifier
 				}
 
+				let finalUTI = useUTI ?? UTType.data.identifier
 				var fileName: String?
 
-				item.loadFileRepresentation(forTypeIdentifier: useUTI!) { (url, _ error) in
+				item.loadFileRepresentation(forTypeIdentifier: finalUTI) { (url, _ error) in
 					guard let url = url else { return }
 
 					let fileNameMaxLength = 16
 
-					if useUTI == kUTTypeUTF8PlainText as String {
+					if finalUTI == UTType.utf8PlainText.identifier {
 						fileName = try? String(String(contentsOf: url, encoding: .utf8).prefix(fileNameMaxLength) + ".txt")
 					}
 
-					if useUTI == kUTTypeRTF as String {
+					if finalUTI == UTType.rtf.identifier {
 						let options = [NSAttributedString.DocumentReadingOptionKey.documentType : NSAttributedString.DocumentType.rtf]
 						fileName = try? String(NSAttributedString(url: url, options: options, documentAttributes: nil).string.prefix(fileNameMaxLength) + ".rtf")
 					}
@@ -214,9 +253,9 @@ class ImportPasteboardAction : Action {
 						fileName = url.lastPathComponent
 					}
 
-					guard let name = fileName else { return }
+					guard let fileName else { return }
 
-					self.upload(itemURL: url, rootItem: rootItem, name: name)
+					self.upload(itemURL: url, rootItem: rootItem, name: fileName)
 				}
 			}
 		}
@@ -238,14 +277,6 @@ class ImportPasteboardAction : Action {
 	}
 
 	override class func iconForLocation(_ location: OCExtensionLocationIdentifier) -> UIImage? {
-		if location == .moreItem || location == .moreFolder {
-			if #available(iOS 13.0, *) {
-				return UIImage(systemName: "doc.on.clipboard")
-			} else {
-				return UIImage(named: "clipboard")
-			}
-		}
-
-		return nil
+		return UIImage(systemName: "doc.on.clipboard")?.withRenderingMode(.alwaysTemplate)
 	}
 }
